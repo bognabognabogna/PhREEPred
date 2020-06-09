@@ -35,7 +35,7 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 #source('~/MGG Dropbox/Bogna Smug/Z_Drulis_Kawa/scripts/version5_2020_05/compare_coctail_and_depo_version_with_delayed_phages.R')
-source('~/MGG Dropbox/Bogna Smug/Z_Drulis_Kawa/scripts/version5_2020_05/compare_coctail_and_depo.R')
+source('/Users/bognasmug/MGG Dropbox/Bogna Smug/Z_Drulis_Kawa/phage_cocktail_efficiency/compare_coctail_and_depo.R')
 
 CFUFromOD = function(OD) {
   #CFU = as.numeric(mod$coefficients[1]) + as.numeric(mod$coefficients[2])*exp(OD)
@@ -147,7 +147,7 @@ data$treat[data$treatment %in% c("Kp77+coctail(KP34+KP27)" ,
                                  "Kp486+coctail(KP34+KP15)",
                                  "Kp486+coctail(KP36+KP27)", 
                                  "Kp486+coctail(KP36+KP15)"
-                                     )] = "All bacteria: 50% P_N & 50% P_P"
+                                     )] = "All bacteria: P_N & P_P"
 
 
 colors = c("All bacteria: no phage" = "black",
@@ -155,7 +155,7 @@ colors = c("All bacteria: no phage" = "black",
               "All bacteria: with P_P only" = "green",
               "All bacteria: with P_N only" = "blue",
               "All bacteria: with P_N plus depo" = "magenta",
-              "All bacteria: 50% P_N & 50% P_P" = "red")
+              "All bacteria: P_N & P_P" = "red")
 ```
 ## Experimental Data
 
@@ -215,12 +215,13 @@ K_depo = 1; # 5 depolymerase Michaelis Menten constant
 
 #mutation rate
 epsilon = 0.01
+epsilon2= 0.00005
 epsilonB2toB1 = epsilon
 epsilonB1toB2 = epsilon
-epsilonB2toB3 = 0#0.001
-epsilonB3toB2 = 0#0.001
-epsilonB1toB3 = 0#0.00001
-epsilonB3toB1 = 0#0.00001
+epsilonB2toB3 = epsilon2
+epsilonB3toB2 = epsilon2
+epsilonB1toB3 = epsilon2
+epsilonB3toB1 = epsilon2
 
 ```
 
@@ -292,8 +293,110 @@ ggplot(data = data %>% filter(type %in% c("Kp486 + KP34 + KP27", "Kp486 + KP36 +
 
 ```
 
+###  <span style="color:red"> 2a) Unequal division of mucoidal forms </span>
+into those that are fully resistant to both phages, those that are only resistant to KP15 (more likely) and those that are only resistant to KP27 (less likely)
+#### Describes:
+- Bacteria: Kp486 + KP36 + KP15
+- Bacteria: Kp486 + KP34 + KP15
 
-### 2) <span style="color:red">Lower burst size for Non-depo phage <or some bacterial resistance against that phage></span>
+#### Parameters
+- mutation rates: epsilonB1toB2 < default, epsillonB1toB3 > default
+
+#### Results
+ - higher bacteria growth under the phage cocktail, especially when the mutation rate to bacteria that are resistant to our non-depo phage is higher (i.e. when we assume more mucoidal forms are resistant to KP15 than to KP27)
+ - note: those mutants in longer timespan will grow much higher than seen in the experiments. This is probably because there is some fitness cost of being mucoid that we do not assume here
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "32%"}
+
+# In KP77 cells do not become mucoid therefore very low chances of becoming quickly resistant to both phages: sepo and non-depo: epsilonB1toB3 = epsilonB2toB3 = 0.0001
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilon, 
+                       epsilonB1toB2=epsilon,
+                       epsilonB2toB3=epsilon2, 
+                       epsilonB3toB2=epsilon2,
+                       epsilonB1toB3=epsilon2, 
+                       epsilonB3toB1=epsilon2,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", 
+                       colors=colors)
+# In KP486: fewer cells loose the capsule as such but more become mucoid.
+# If we divide mucoid cells into B2 (sensitive to KP15) and B3 (resistant to both) it turns out the flux of
+# capsuled bacteria to bacteria resistant to both types (B3) epsilonB1toB3 is larger than in the case of KP77
+
+
+# KP27: good at clearing bacteria
+alpha = 0.995 # % of the new forms that will be sensitive to non-depo phage either due to 
+# not having capsule or being only partially mucoidal and still having the receptors for the non-depo phage
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilon*alpha, 
+                       epsilonB1toB2=epsilon,
+                       epsilonB2toB3=epsilon2, 
+                       epsilonB3toB2=epsilon2,
+                       epsilonB1toB3=epsilon2 + epsilon*(1-alpha),
+                       epsilonB3toB1=epsilon2,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "SOME MUCOIDAL FORMS INSTEAD OF UNCAPSULED: \n FEW RESIATNT TO P_N (KP27)", colors=colors)
+
+# KP15: bad at clearing bacteria
+alpha = 0.96 # % of the new forms that will be sensitive to non-depo phage either due to 
+# not having capsule or being only partially mucoidal and still having the receptors for the non-depo phage
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilon*alpha, 
+                       epsilonB1toB2=epsilon,
+                       epsilonB2toB3=epsilon2, 
+                       epsilonB3toB2=epsilon2,
+                       epsilonB1toB3=epsilon2 + epsilon*(1-alpha),
+                       epsilonB3toB1=epsilon2,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "SOME MUCOIDAL FORMS INSTEAD OF UNCAPSULED: \n MANY RESIATNT TO P_N (KP15)", colors=colors)
+```
+
+### 2b) <span style="color:red">Lower burst size for Non-depo phage <or some bacterial resistance against that phage></span>
 #### Describes:
 - Bacteria: Kp486 + KP36 + KP15
 - Bacteria: Kp486 + KP34 + KP15
@@ -1357,3 +1460,97 @@ Simulate_Phage_Coctail(Vh=Vh,
                        colors=colors,
                        bf = 0)
 ```
+
+
+
+### 17) Coctails at different proportions of P_N and P_P
+#### Parameters 
+- beta_non_depo = 5
+- propPN = 0.1, propPN = 0.9
+
+#### Results
+- Manipulation of the initial phage frequency may be useful when we know one of the phages is weaker than the other.
+For example if the non depo phage has a low burts size and we add more of it to the mixture then we keep the bacteria load lower for a longer time than when mixing phages in the proportion 1:1.
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "32%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=5, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT WITH LOW P_N BURT SIZE", colors=colors,
+                       propPP = 0.5)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=5, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "CPCTAIL WITH 10% P_N and 90% P_P", 
+                       colors=colors,
+                       propPP = 0.9)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=5, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "CPCTAIL WITH 90% P_N and 10% P_P", 
+                       colors=colors,
+                       propPP = 0.1)
+```
+
+
+

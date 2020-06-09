@@ -14,9 +14,9 @@ two_phages_and_bacteria = function(Time, State, Pars) {
       burst_factor = 10*Jg/Vh #bacteria will not burst and release new phages when they don't grow
     }
     # depolymerase activity
-    Jdepo = (E + P1*c)*V_depo*B1/(K_depo+B1); # bacteria with capsule that will become capsuleless because of the dpeolymerase
+    Jdepo = E*V_depo*B1/(K_depo+B1); # bacteria with capsule that will become capsuleless because of the dpeolymerase
     #equations during the grow
-    Edot    = -depo_decay_rate*E;
+    Edot    = -depo_decay_rate*E + P1*c;
     Gdot    = -Jg*(B1 + B2 + B3);
     B1dot   = a*Jg*B1 - phi_depo*B1*P1 - epsilonB1toB2*B1 + epsilonB2toB1*B2 - epsilonB1toB3*B1 + epsilonB3toB1*B3 - Jdepo; #those can be infected by p1 only
     B2dot   = a*Jg*B2 - phi_non_depo*B2*P2 - epsilonB2toB1*B2 + epsilonB1toB2*B1 -epsilonB2toB3*B2 + epsilonB3toB2*B3 + Jdepo; #those can be infected by p2 only
@@ -30,7 +30,7 @@ two_phages_and_bacteria = function(Time, State, Pars) {
 
 
 Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_depo, phi_depo, decay, V_depo, K_depo, c, depo_decay_rate, epsilonB2toB1, epsilonB1toB2,epsilonB2toB3, epsilonB3toB2,epsilonB1toB3, epsilonB3toB1, B0, 
-                                  e0=1, MOI =1, G0=29, Tmax = 24, title_plot = "", colors = NULL, bf = 1) {
+                                  e0=1, MOI =1, G0=29, Tmax = 24, title_plot = "", colors = NULL, bf = 1, propPP =0.5) {
   
 
   if (is.null(colors)) {
@@ -39,7 +39,7 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
                "All bacteria: with P_P only" = "green",
                "All bacteria: with P_N only" = "blue",
                "All bacteria: with P_N plus depo" = "magenta",
-               "All bacteria: 50% P_N & 50% P_P" = "red")
+               "All bacteria: P_N & P_P" = "red")
   }
   
   time = seq(0,Tmax,1)
@@ -75,10 +75,10 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
   
   # No external depolimerase: different combinations of phages
   decriptions = c("All bacteria: with P_N only", 
-                  "All bacteria: 50% P_N & 50% P_P",
+                  "All bacteria: P_N & P_P",
                   "All bacteria: with P_P only")
   i=0
-  for (freq in c(0, 0.5, 1)) {
+  for (freq in c(0, propPP, 1)) {
   i=i+1
   inits = c(E= 0,
             G= G0, 

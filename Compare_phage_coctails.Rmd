@@ -1,0 +1,1359 @@
+---
+title: "Various phage cocktail scenarios"
+author: "Bogna Smug"
+date: "6/3/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+## Recent changes to the model:
+- **external depolimerase decays in time:** if it doesn't then bacteria under depo+P_N treatment either start growing very quickly or don't grow at all if depolimerase is strong enough  
+- **bacteria stops bursting when it stops growing:** if it doesn't then phage coctails are effective for very long as phages become free at the latest stage of experiment. The difference between those two scenarios can only be noticed at some specific parameter ranges.
+
+
+## Summary:
+**The efficiency of the phage coctail is relatively robust to:**  
+- initial bacteria biomass  
+- initial resource concentration  
+- the depolymerase activity  
+- the mutation rate between capsuled and uncapsuled strains  
+
+
+**It is temporarily sensitive to:**  
+- depo phage killing ability (both adsorption rate and burst size) <initial phase of bacterial growth>  
+- non-depo phage killing ability (both adsorption rate and burst size) <later phase of bacterial growth>  
+- MOI (to certain extend): there may be moments when bacteria is allowed to grow again before phages will be able to multiplicate  
+<span style="color:red">Note that the efficiency of standard single phage therapies are sensitive to many of the above factors</span>
+
+**And is going to fail in long term if:**  
+- bacteria are able to quickly mutate to yet another resistant strain   
+- phage decay rate is high
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+#source('~/MGG Dropbox/Bogna Smug/Z_Drulis_Kawa/scripts/version5_2020_05/compare_coctail_and_depo_version_with_delayed_phages.R')
+source('~/MGG Dropbox/Bogna Smug/Z_Drulis_Kawa/scripts/version5_2020_05/compare_coctail_and_depo.R')
+
+CFUFromOD = function(OD) {
+  #CFU = as.numeric(mod$coefficients[1]) + as.numeric(mod$coefficients[2])*exp(OD)
+  CFU = -1079035517 + 1014525658*exp(OD)
+  return(CFU)
+}
+```
+
+```{r read-in-data}
+data486cocktails=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+                sheet = "KP486 do papieru",
+                range = "AL67:AU116")
+data486depo=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+                sheet = "KP486 do papieru",
+                range = "AL121:AU170")
+names(data486cocktails)[1] = "time"
+names(data486depo)[1] = "time"
+data486 = data486depo %>% 
+  left_join(data486cocktails) %>%
+  tidyr::gather(key = "treatment", value = "OD", -time) %>%
+  mutate(CFU = CFUFromOD(OD),
+         treatment = gsub(" ", "", treatment))
+
+
+data77cocktails=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+                sheet = "KP77 do papieru ",
+                range = "BG65:BP114")
+data77depo=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+                sheet = "KP77 do papieru ",
+                range = "BG126:BP175")
+names(data77cocktails)[1] = "time"
+names(data77depo)[1] = "time"
+data77 = data77depo %>% 
+  left_join(data77cocktails) %>%
+  tidyr::gather(key = "treatment", value = "OD", -time) %>%
+  mutate(CFU = CFUFromOD(OD),
+         treatment = gsub(" ", "", treatment))
+
+data77_1 = data77 %>% 
+  filter(treatment %in% c("Kp77","Kp77+KP15","Kp77+KP36", "Kp77+KP36gp50", "Kp77+coctail(KP36gp50+KP15)", "Kp77+coctail(KP36+KP15)")) %>%
+  mutate(type= "Kp77 + KP36 + KP15")
+
+data77_2 = data77 %>% 
+  filter(treatment %in% c("Kp77","Kp77+KP15","Kp77+KP34", "Kp77+KP34gp57", "Kp77+coctail(KP34gp57+KP15)", "Kp77+coctail(KP34+KP15)")) %>%
+  mutate(type= "Kp77 + KP34 + KP15")
+
+data77_3 = data77 %>% 
+  filter(treatment %in% c("Kp77","Kp77+KP27", "Kp77+KP36","Kp77+KP36gp50", "Kp77+coctail(KP36gp50+KP27)", "Kp77+coctail(KP36+KP27)")) %>%
+  mutate(type= "Kp77 + KP36 + KP27")
+
+data77_4 = data77 %>% 
+  filter(treatment %in% c("Kp77","Kp77+KP27", "Kp77+KP34","Kp77+KP34gp57", "Kp77+coctail(KP34gp57+KP27)", "Kp77+coctail(KP34+KP27)")) %>%
+  mutate(type= "Kp77 + KP34 + KP27")
+
+data77 = rbind(data77_1, data77_2, data77_3, data77_4)
+
+data486_1 = data486 %>% 
+  filter(treatment %in% c("Kp486","Kp486+KP15","Kp486+KP36",  "Kp486+KP36gp50", "Kp486+coctail(KP36gp50+KP15)", "Kp486+coctail(KP36+KP15)")) %>%
+  mutate(type= "Kp486 + KP36 + KP15")
+
+data486_2 = data486 %>% 
+  filter(treatment %in% c("Kp486","Kp486+KP15", "Kp486+KP34", "Kp486+KP34gp57", "Kp486+coctail(KP34gp57+KP15)", "Kp486+coctail(KP34+KP15)")) %>%
+  mutate(type= "Kp486 + KP34 + KP15")
+
+data486_3 = data486 %>% 
+  filter(treatment %in% c("Kp486","Kp486+KP27", "Kp486+KP36", "Kp486+KP36gp50", "Kp486+coctail(KP36gp50+KP27)", "Kp486+coctail(KP36+KP27)")) %>%
+  mutate(type= "Kp486 + KP36 + KP27")
+
+data486_4 = data486 %>% 
+  filter(treatment %in% c("Kp486","Kp486+KP27", "Kp486+KP34", "Kp486+KP34gp57", "Kp486+coctail(KP34gp57+KP27)", "Kp486+coctail(KP34+KP27)")) %>%
+  mutate(type= "Kp486 + KP34 + KP27")
+
+data486 = rbind(data486_1, data486_2,data486_3, data486_4)
+
+
+data = rbind(data486 %>% mutate(bacteria = "486"), data77 %>% mutate(bacteria = "77"))
+data$treat = data$treatment
+data$treat[data$treatment %in% c("Kp77", "Kp486")] = "All bacteria: no phage"
+data$treat[data$treatment %in% c("Kp77+KP36gp50" , 
+                                     "Kp77+KP34gp57",
+                                     "Kp486+KP36gp50", 
+                                     "Kp486+KP34gp57"
+                                     )] = "All bacteria: external depo"
+data$treat[data$treatment %in% c("Kp77+KP36" , 
+                                 "Kp77+KP34",
+                                 "Kp486+KP36", 
+                                 "Kp486+KP34"
+                                     )] = "All bacteria: with P_P only"
+data$treat[data$treatment %in% c("Kp77+KP15" , 
+                                 "Kp77+KP27",
+                                 "Kp486+KP15", 
+                                 "Kp486+KP27"
+                                     )] = "All bacteria: with P_N only"
+data$treat[data$treatment %in% c("Kp77+coctail(KP34gp57+KP27)" , 
+                                 "Kp77+coctail(KP34gp57+KP15)",
+                                 "Kp77+coctail(KP36gp50+KP27)", 
+                                 "Kp77+coctail(KP36gp50+KP15)",
+                                 "Kp486+coctail(KP34gp57+KP27)" , 
+                                 "Kp486+coctail(KP34gp57+KP15)",
+                                 "Kp486+coctail(KP36gp50+KP27)", 
+                                 "Kp486+coctail(KP36gp50+KP15)"
+                                     )] = "All bacteria: with P_N plus depo"
+
+data$treat[data$treatment %in% c("Kp77+coctail(KP34+KP27)" , 
+                                 "Kp77+coctail(KP34+KP15)",
+                                 "Kp77+coctail(KP36+KP27)", 
+                                 "Kp77+coctail(KP36+KP15)",
+                                 "Kp486+coctail(KP34+KP27)" , 
+                                 "Kp486+coctail(KP34+KP15)",
+                                 "Kp486+coctail(KP36+KP27)", 
+                                 "Kp486+coctail(KP36+KP15)"
+                                     )] = "All bacteria: 50% P_N & 50% P_P"
+
+
+colors = c("All bacteria: no phage" = "black",
+              "All bacteria: external depo" = "gray",
+              "All bacteria: with P_P only" = "green",
+              "All bacteria: with P_N only" = "blue",
+              "All bacteria: with P_N plus depo" = "magenta",
+              "All bacteria: 50% P_N & 50% P_P" = "red")
+```
+## Experimental Data
+
+```{r compare-to-data, , out.width = "99%", fig.height = 3}
+
+ggplot(data = data %>% filter(bacteria == "77") %>% rename(Treatment = treat),
+       aes(x = time, y = CFU, col = Treatment)) +
+  geom_line() +
+  facet_grid(bacteria ~ type)+
+  theme(text = element_text(size=6)) +
+  ylim(-5*10^7, 3*10^9)  +
+  scale_color_manual(values=colors) 
+
+ggplot(data = data %>% filter(bacteria == "486") %>% rename(Treatment = treat),
+       aes(x = time, y = CFU, col = Treatment)) +
+  geom_line() +
+  facet_grid(bacteria ~ type) +
+  theme(text = element_text(size=6)) +
+  ylim(-5*10^7, 3*10^9) +
+  scale_color_manual(values=colors) 
+```
+
+```{r}
+# PARAMETERS
+# to fit those params we need OD of bacteria with no phages
+Tmax = 24;
+Vh=122; 
+Kh=500;
+a=0.07;
+
+# initial values
+B0  = 0.05;
+
+MOI = 10;
+G0  = 1*29;
+
+
+# fagi z depolimerazą są mniejsze więc krocej się namnażają
+# burst size
+beta_non_depo = 50;
+beta_depo = 100;
+
+# adsororption rate to the specific phage
+phi_non_depo = 0.25; # phage 1 (with depolymerase) to bacteria with polisaccharide
+phi_depo = 0.25; # phage 2 (without depolimerase) to bacteria without polissacharide
+
+# phage decay rate
+decay = 0.0106; # Cairns 2009 decay = 0.0106 [1/h]
+
+# depolymerase activity
+depo_decay_rate = 1;
+e0 = 2; # when added depolymerase
+c=0;
+V_depo = 5; #15; # depolymerase max activity
+K_depo = 1; # 5 depolymerase Michaelis Menten constant
+# as in Michaelis Menten kinetics V = e_0 * k_2 where e_0 is the enzyme concentration
+
+#mutation rate
+epsilon = 0.01
+epsilonB2toB1 = epsilon
+epsilonB1toB2 = epsilon
+epsilonB2toB3 = 0#0.001
+epsilonB3toB2 = 0#0.001
+epsilonB1toB3 = 0#0.00001
+epsilonB3toB1 = 0#0.00001
+
+```
+
+## Main scenarios covered by our model:
+### 1) Default i.e. effective cocktail
+#### Describes:
+ 
+- Bacteria: Kp486 + KP34 + KP27 
+- Bacteria: Kp486 + KP36 + KP27
+- Bacteria: Kp77 + KP34 + KP27
+- Bacteria: Kp77 + KP36 + KP27
+- Bacteria: Kp77 + KP34 + KP15 
+- Bacteria: Kp77 + KP36 + KP15
+
+#### Parameters
+- mutation rate: `r epsilon` 
+- mutations just between capsuled and uncapsuled strains  
+- phage decay: `r decay`  
+- no free depolymerase (detached from depolymerase phages)  
+- adsorption rates: (i) `r phi_depo` for depo phage (P_P), (ii) `r phi_non_depo` for non-depo phage  (P_N)  
+- burst sizes: (i) `r beta_depo` for depo phage (P_P), (ii) `r beta_non_depo` for non-depo phage (P_N)
+
+#### Results:  
+Non-depo phage plus external depolymerase is more effective than just the non-depo phage but much less effective than the phages cocktail.
+
+```{r}
+# Finaly evalutate simulation
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT")
+```
+
+
+```{r compare-to-data-2, fig.height = 3, out.width = "99%"}
+
+ggplot(data = data %>% filter(type %in% c("Kp486 + KP34 + KP27", "Kp486 + KP36 + KP27",
+                                          "Kp77 + KP34 + KP27",
+                                          "Kp77 + KP36 + KP27",
+                                          "Kp77 + KP36 + KP15",
+                                          "Kp77 + KP34 + KP15")) %>% rename(Treatment = treat),
+       aes(x = time, y = CFU, col = Treatment)) +
+  geom_line() +
+  facet_grid(. ~ type)+
+  theme(text = element_text(size=6)) +
+  ylim(-5*10^7, 3*10^9)  +
+  scale_color_manual(values=colors) +
+  ggtitle("Data covered by our model")
+
+```
+
+
+### 2) <span style="color:red">Lower burst size for Non-depo phage <or some bacterial resistance against that phage></span>
+#### Describes:
+- Bacteria: Kp486 + KP36 + KP15
+- Bacteria: Kp486 + KP34 + KP15
+
+
+#### Parameters
+- burst sizes: (i) 5 for non-depo phage (P_N), (ii) `r beta_depo` for depo phage (P_P)
+
+#### Results
+ - higher bacteria growth under the phage cocktail and P_N plus depo treatments  
+ -  <span style="color:red"> In the experimental data we do not observe a drop in P_N + depo treatment. This is not clear why if the non-depo phage is not very successful at infecting the Kp486 bacteria. </span>
+
+```{r,echo=FALSE}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=5, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "LOW NON_DEPO PHAGE BURST SIZE")
+```
+
+
+```{r compare-to-data-3, fig.height = 3, out.width = "99%"}
+
+ggplot(data = data %>% filter(type %in% c("Kp486 + KP34 + KP15",
+                                          "Kp486 + KP36 + KP15"
+                                          )) %>% rename(Treatment = treat),
+       aes(x = time, y = CFU, col = Treatment)) +
+  geom_line() +
+  facet_grid(. ~ type)+
+  theme(text = element_text(size=6)) +
+  ylim(-5*10^7, 3*10^9)  +
+  scale_color_manual(values=colors) +
+  ggtitle("Data covered by our model")
+
+```
+
+## Other scenarios covered by our model:
+### 3) Lower burst size for depo phage <or some bacterial resistance against that phage>
+#### Parameters
+- burst sizes: (i) `r beta_non_depo` for non depo phage (P_N), (ii) 5 for depo phage (P_P)
+
+#### Results
+- quicker bacteria growth under P_P therapy  <span style="color:red">(but lower after 24h!)</span>
+- quicker and higher bacteria growth under cocktail therapy
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", 
+                       colors=colors)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=5, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "LOW DEPO PHAGE BURST SIZE", colors=colors)
+```
+
+
+
+### 4) Quicker phage decay
+#### Parameters
+- phage decay: 1
+
+#### Results
+- under P_N treatment bacteria can grow same well as when there is no phage (i.e. P_N will decay before capsuled bacteria mutate)
+- all treatments are less effective, especially the phage coctail
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax,
+                       title_plot = "DEFAULT", colors=colors)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=1, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "HIGH DECAY RATE", colors=colors)
+```
+
+### 5a) <span style="color:red">Quicker mutation</span>
+#### Parameters
+- mutation rate: 0.05
+
+#### Results
+- single treatments (P_P or P_N only) are affected the most and they are more effective. This is because bacteria that mutate too easily will mutate back towards the mutants that are easily cleared by phages
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", colors=colors)
+epsilon = 0.05
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilon, 
+                       epsilonB1toB2=epsilon,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "HIGH MUTATION RATE", colors=colors)
+```
+
+
+### 5b) Slower mutation
+#### Parameters
+- mutation rate: 0.0001
+
+#### Results
+- single treatments (P_P only and P_N plus depo) are affected the most and they are more effective. This is because bacteria will not escape the phage infection that easily.
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", colors=colors)
+epsilon = 0.001
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilon, 
+                       epsilonB1toB2=epsilon,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "HIGH MUTATION RATE", colors=colors)
+```
+
+
+### 6) <span style="color:red">There is another strain to which uncapsuled bacteria can mutate</span>
+#### Parameters
+- mutation rate (capsuled to a new resistant mutant): 0.001
+
+#### Results
+- the phage cocktail treatment stops being effective in a longer timescale (although it keeps working pretty well for the first ~20 hours)
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", colors=colors)
+epsilon = 0.001
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilon, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "ANOTHER RESISTANT MUTANT", colors=colors)
+```
+
+### 7) The depolymerase encoded by depo phage becomes freely available in the environment
+#### Parameters 
+- c: 1
+
+#### Results
+- the most affected is the treatment under a single depo phage (P_P) and it becomes less effective. This is because the free depolymerase converts capsuled strains into uncapsuled ones and the depo phages (P_P) can't attach to those
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", colors=colors)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=1, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "FREE DEPOLYMERASE", colors=colors)
+```
+
+
+### 7b) The external depolymerase doesn't decay
+#### Parameters 
+- depo_decay_rate = 0
+
+#### Results
+- the P_N plus depo treatment becomes much more effective
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", colors=colors)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=0,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEPOLYMERASE DOESN'T DECAY", colors=colors)
+```
+
+### 8) The depo phage depolymerase is stronger
+#### Parameters 
+- V_depo: 10
+
+#### Results
+- It affects the P_N plus depo treatment which becomes more effective.
+In the main version of the model the strength of depolymerase doesn't change the killing rate so it only affect the treatment where depo is supplied externally
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", colors=colors)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=10, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "STRONGER DEPO", colors=colors)
+```
+
+### 9) Higher adsorption rate of the depo phage (P_P)
+#### Parameters
+- phi_depo: 2
+
+#### Results
+- treatments under the depo phage (P_P) and under the phage cocktail become more effective and they postpone bacterial regrowth
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", colors=colors)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=2, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "HIGHER ADSORPTION OF P_P", colors=colors)
+```
+
+### 10) <span style="color:red">Lower adsorption rate of the depo phage (P_P)</span>
+#### Parameters 
+- phi_depo: 0.05
+
+#### Results
+- treatments under the depo phage (P_P) and under the phage cocktail become less effective in the short timescale (first 10 hours) but P_P becomes more effective in the longer timescale. This is probably due to a smaller pressure to loose a capsule and to escape the depo phage invasion.
+
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", colors=colors)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=0.05, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "LOWER ADSORPTION OF P_P", colors=colors)
+```
+
+### 11) Higher adsorption rate of the non-depo phage (P_N)
+#### Parameters 
+- phi_non_depo: 1
+
+#### Results
+- no much effect, interestingly the depo + P_N works for longer
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", colors=colors)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=1, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "HIGHER ADSORPTION OF P_N", colors=colors)
+```
+
+
+### 12) Lower adsorption rate of the non-depo phage (P_N)
+#### Parameters
+- phi_non_depo: 0.05
+
+#### Results
+- the phage coctail treatments becomes less effective  
+- the P_N + depo treatment becomes less effective in short term and  <span style="color:red">more effective in long term</span>
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", colors=colors)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=0.05, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "LOWER ADSORPTION OF P_N", colors=colors)
+```
+
+### 13) Lower MOI
+#### Parameters
+- MOI:0.1
+
+#### Results
+- Bacteria grows initially before phages multiplicate enough to start clearing the bacteria
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", colors=colors)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =0.1, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "LOWER MOI", colors=colors)
+```
+
+
+### 14) <span style="color:red">Higher glucose concentration</span>
+#### Parameters
+- G0:58
+
+#### Results
+- Bacteria grows quickly before phages multiplicate enough to start clearing the bacteria  
+- Interestingly phage cocktail keeps being same effective
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", colors=colors)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=58, 
+                       Tmax = Tmax, 
+                       title_plot = "HIGHER RESOURCE", colors=colors)
+```
+
+
+### 16)<span style="color:red"> Higher initial biomass </span>
+#### Parameters
+- B0:0.25
+
+#### Results
+- Interestingly, phage therapies are much more effective in this case.
+This is known as 'proliferation threshold' i.e: bacteria that are very abundant at the beginning get cleared by phages quicker
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", colors=colors)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=0.25, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "LOWER IITIAL BIOMASS", colors=colors)
+```
+
+### 15) Lower biomass
+#### Parameters
+- B0:0.01
+
+#### Results
+- The dynamics is slower: some lag before bacteria start growing
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", colors=colors)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=0.01, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "LOWER IITIAL BIOMASS", colors=colors)
+```
+
+### 16) Bacteria keeps releasing phages after it stops growing and phage decay rate is high
+#### Parameters 
+- bf = 0
+- decay = 1
+
+#### Results
+- The cocktail is effective for too long because phages come back to the environment even after teh bacteia stops growing
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "DEFAULT", colors=colors)
+Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=1, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       c=c, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "BACTERIA KEEP BURSTING AFTER CEASED GROWTH", 
+                       colors=colors,
+                       bf = 0)
+```

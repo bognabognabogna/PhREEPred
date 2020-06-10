@@ -90,7 +90,7 @@ Compare_Sequential_And_Paralel_Phage_Coctail = function(Vh, Kh,a, beta_non_depo,
   
   if (is.null(colors)) {
     colors = c("All bacteria: no phage" = "black",
-               "All bacteria: sequential conktail" = "red",
+               "All bacteria: sequential cocktail" = "red",
                "All bacteria: parallel cocktail" = "darkblue")
   }
   # No external depolimerase: different combinations of phages

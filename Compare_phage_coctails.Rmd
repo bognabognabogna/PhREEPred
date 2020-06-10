@@ -7,12 +7,12 @@ output:
   pdf_document: default
 ---
 ## Recent changes to the model:
-- **external depolimerase decays in time:** if it doesn't then bacteria under depo+P_N treatment either start growing very quickly or don't grow at all if depolimerase is strong enough  
-- **bacteria stops bursting when it stops growing:** if it doesn't then phage coctails are effective for very long as phages become free at the latest stage of experiment. The difference between those two scenarios can only be noticed at some specific parameter ranges.
+- **external depolymerase decays in time:** if it doesn't then bacteria under depo+P_N treatment either start growing very quickly or don't grow at all if depolymerase is strong enough  
+- **bacteria stops bursting when it stops growing:** if it doesn't then phage cocktails are effective for very long as phages become free at the latest stage of experiment. The difference between those two scenarios can only be noticed at some specific parameter ranges.
 
 
 ## Summary:
-**The efficiency of the phage coctail is relatively robust to:**  
+**The efficiency of the phage cocktail is relatively robust to:**  
 - initial bacteria biomass  
 - initial resource concentration  
 - the depolymerase activity  
@@ -75,37 +75,37 @@ data77 = data77depo %>%
          treatment = gsub(" ", "", treatment))
 
 data77_1 = data77 %>% 
-  filter(treatment %in% c("Kp77","Kp77+KP15","Kp77+KP36", "Kp77+KP36gp50", "Kp77+coctail(KP36gp50+KP15)", "Kp77+coctail(KP36+KP15)")) %>%
+  filter(treatment %in% c("Kp77","Kp77+KP15","Kp77+KP36", "Kp77+KP36gp50", "Kp77+cocktail(KP36gp50+KP15)", "Kp77+cocktail(KP36+KP15)")) %>%
   mutate(type= "Kp77 + KP36 + KP15")
 
 data77_2 = data77 %>% 
-  filter(treatment %in% c("Kp77","Kp77+KP15","Kp77+KP34", "Kp77+KP34gp57", "Kp77+coctail(KP34gp57+KP15)", "Kp77+coctail(KP34+KP15)")) %>%
+  filter(treatment %in% c("Kp77","Kp77+KP15","Kp77+KP34", "Kp77+KP34gp57", "Kp77+cocktail(KP34gp57+KP15)", "Kp77+cocktail(KP34+KP15)")) %>%
   mutate(type= "Kp77 + KP34 + KP15")
 
 data77_3 = data77 %>% 
-  filter(treatment %in% c("Kp77","Kp77+KP27", "Kp77+KP36","Kp77+KP36gp50", "Kp77+coctail(KP36gp50+KP27)", "Kp77+coctail(KP36+KP27)")) %>%
+  filter(treatment %in% c("Kp77","Kp77+KP27", "Kp77+KP36","Kp77+KP36gp50", "Kp77+cocktail(KP36gp50+KP27)", "Kp77+cocktail(KP36+KP27)")) %>%
   mutate(type= "Kp77 + KP36 + KP27")
 
 data77_4 = data77 %>% 
-  filter(treatment %in% c("Kp77","Kp77+KP27", "Kp77+KP34","Kp77+KP34gp57", "Kp77+coctail(KP34gp57+KP27)", "Kp77+coctail(KP34+KP27)")) %>%
+  filter(treatment %in% c("Kp77","Kp77+KP27", "Kp77+KP34","Kp77+KP34gp57", "Kp77+cocktail(KP34gp57+KP27)", "Kp77+cocktail(KP34+KP27)")) %>%
   mutate(type= "Kp77 + KP34 + KP27")
 
 data77 = rbind(data77_1, data77_2, data77_3, data77_4)
 
 data486_1 = data486 %>% 
-  filter(treatment %in% c("Kp486","Kp486+KP15","Kp486+KP36",  "Kp486+KP36gp50", "Kp486+coctail(KP36gp50+KP15)", "Kp486+coctail(KP36+KP15)")) %>%
+  filter(treatment %in% c("Kp486","Kp486+KP15","Kp486+KP36",  "Kp486+KP36gp50", "Kp486+cocktail(KP36gp50+KP15)", "Kp486+cocktail(KP36+KP15)")) %>%
   mutate(type= "Kp486 + KP36 + KP15")
 
 data486_2 = data486 %>% 
-  filter(treatment %in% c("Kp486","Kp486+KP15", "Kp486+KP34", "Kp486+KP34gp57", "Kp486+coctail(KP34gp57+KP15)", "Kp486+coctail(KP34+KP15)")) %>%
+  filter(treatment %in% c("Kp486","Kp486+KP15", "Kp486+KP34", "Kp486+KP34gp57", "Kp486+cocktail(KP34gp57+KP15)", "Kp486+cocktail(KP34+KP15)")) %>%
   mutate(type= "Kp486 + KP34 + KP15")
 
 data486_3 = data486 %>% 
-  filter(treatment %in% c("Kp486","Kp486+KP27", "Kp486+KP36", "Kp486+KP36gp50", "Kp486+coctail(KP36gp50+KP27)", "Kp486+coctail(KP36+KP27)")) %>%
+  filter(treatment %in% c("Kp486","Kp486+KP27", "Kp486+KP36", "Kp486+KP36gp50", "Kp486+cocktail(KP36gp50+KP27)", "Kp486+cocktail(KP36+KP27)")) %>%
   mutate(type= "Kp486 + KP36 + KP27")
 
 data486_4 = data486 %>% 
-  filter(treatment %in% c("Kp486","Kp486+KP27", "Kp486+KP34", "Kp486+KP34gp57", "Kp486+coctail(KP34gp57+KP27)", "Kp486+coctail(KP34+KP27)")) %>%
+  filter(treatment %in% c("Kp486","Kp486+KP27", "Kp486+KP34", "Kp486+KP34gp57", "Kp486+cocktail(KP34gp57+KP27)", "Kp486+cocktail(KP34+KP27)")) %>%
   mutate(type= "Kp486 + KP34 + KP27")
 
 data486 = rbind(data486_1, data486_2,data486_3, data486_4)
@@ -129,24 +129,24 @@ data$treat[data$treatment %in% c("Kp77+KP15" ,
                                  "Kp486+KP15", 
                                  "Kp486+KP27"
                                      )] = "All bacteria: with P_N only"
-data$treat[data$treatment %in% c("Kp77+coctail(KP34gp57+KP27)" , 
-                                 "Kp77+coctail(KP34gp57+KP15)",
-                                 "Kp77+coctail(KP36gp50+KP27)", 
-                                 "Kp77+coctail(KP36gp50+KP15)",
-                                 "Kp486+coctail(KP34gp57+KP27)" , 
-                                 "Kp486+coctail(KP34gp57+KP15)",
-                                 "Kp486+coctail(KP36gp50+KP27)", 
-                                 "Kp486+coctail(KP36gp50+KP15)"
+data$treat[data$treatment %in% c("Kp77+cocktail(KP34gp57+KP27)" , 
+                                 "Kp77+cocktail(KP34gp57+KP15)",
+                                 "Kp77+cocktail(KP36gp50+KP27)", 
+                                 "Kp77+cocktail(KP36gp50+KP15)",
+                                 "Kp486+cocktail(KP34gp57+KP27)" , 
+                                 "Kp486+cocktail(KP34gp57+KP15)",
+                                 "Kp486+cocktail(KP36gp50+KP27)", 
+                                 "Kp486+cocktail(KP36gp50+KP15)"
                                      )] = "All bacteria: with P_N plus depo"
 
-data$treat[data$treatment %in% c("Kp77+coctail(KP34+KP27)" , 
-                                 "Kp77+coctail(KP34+KP15)",
-                                 "Kp77+coctail(KP36+KP27)", 
-                                 "Kp77+coctail(KP36+KP15)",
-                                 "Kp486+coctail(KP34+KP27)" , 
-                                 "Kp486+coctail(KP34+KP15)",
-                                 "Kp486+coctail(KP36+KP27)", 
-                                 "Kp486+coctail(KP36+KP15)"
+data$treat[data$treatment %in% c("Kp77+cocktail(KP34+KP27)" , 
+                                 "Kp77+cocktail(KP34+KP15)",
+                                 "Kp77+cocktail(KP36+KP27)", 
+                                 "Kp77+cocktail(KP36+KP15)",
+                                 "Kp486+cocktail(KP34+KP27)" , 
+                                 "Kp486+cocktail(KP34+KP15)",
+                                 "Kp486+cocktail(KP36+KP27)", 
+                                 "Kp486+cocktail(KP36+KP15)"
                                      )] = "All bacteria: P_N & P_P"
 
 
@@ -223,6 +223,119 @@ epsilonB3toB2 = epsilon2
 epsilonB1toB3 = epsilon2
 epsilonB3toB1 = epsilon2
 
+```
+
+## Sequential vs Parallel cocktail
+
+### Assuming all the receptors are dropped at once 
+We see that a parallel cocktail is effective in short term although in long term it is not any better than a single phage and that the bacteria becomes resistant to it same quickly as it became resistant to one phage and much quicker than to the sequential phage cocktail.
+
+```{r, out.width = "50%"}
+    colors2 = c("All bacteria: no phage" = "black",
+               "All bacteria: sequential cocktail" = "red",
+               "All bacteria: parallel cocktail" = "darkblue")
+
+  # No external depolimerase: different combinations of phages
+  descriptions = c("All bacteria: no phage",
+                   "All bacteria: sequential cocktail",
+                   "All bacteria: parallel cocktail")
+  
+# Finaly evalutate simulation
+Compare_Sequential_And_Paralel_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       title_plot = "",
+                       colors = colors2)
+```
+
+### Assuming receptors are lost independently with the same probability
+and that the Non-depo phage can attach to bacteria that lost one specific receptor (no necessarily the other)
+
+```{r}
+beta2 = beta_non_depo
+phi2=phi_non_depo
+  pars =  c(a = a, 
+            Vh = Vh, 
+            Kh = Kh,
+            beta_non_depo = beta_non_depo, 
+            beta2 = beta2,
+            beta_depo = beta_depo, 
+            phi_non_depo = phi_non_depo, 
+            phi2 = phi2, 
+            phi_depo = phi_depo,
+            decay = decay, 
+            bf = 1,
+            epsilonB2toB1 = epsilon, 
+            epsilonB1toB2 = epsilon,
+            epsilonB2toB4 = epsilon,
+            epsilonB4toB2 = epsilon,
+            epsilonB1toB3 = epsilon,
+            epsilonB3toB1 = epsilon,
+            epsilonB3toB4 = epsilon,
+            epsilonB4toB3 = epsilon
+            )
+  
+  time = seq(0,Tmax,1)
+  P0=B0*MOI;  
+inits = 
+            c(G = G0, 
+              Pdepo = 0.5*P0,
+              P2 = 0,
+              Pnondepo = 0.5*P0,
+              B1= B0,
+              B2 = 0,
+              B3 = 0,
+              B4 = 0)
+
+    simulation <- as.data.frame(ode(inits, time, two_simultaneous_phages_and_bacteria_with_two_receptors, pars))%>%
+      mutate(bacteria = B1+B2+ B3+B4) %>%
+      select(time, bacteria) %>%
+      mutate(description = descriptions[2])
+    simulated_data = simulation
+    
+    inits['Pdepo'] = 0
+    inits['Pnondepo'] = 0
+    simulation <- as.data.frame(ode(inits, time, two_simultaneous_phages_and_bacteria_with_two_receptors, pars))%>%
+      mutate(bacteria = B1+B2+ B3+B4) %>%
+      select(time, bacteria) %>%
+      mutate(description = descriptions[1])
+    simulated_data = rbind(simulated_data, simulation) 
+    
+    inits['Pdepo'] = 0.5*P0
+    inits['Pnondepo'] = 0
+    inits['P2'] = 0.5*P0
+    simulation <- as.data.frame(ode(inits, time, two_simultaneous_phages_and_bacteria_with_two_receptors, pars))%>%
+      mutate(bacteria = B1+B2+ B3+B4) %>%
+      select(time, bacteria) %>%
+      mutate(description = descriptions[3])
+    simulated_data = rbind(simulated_data, simulation) 
+        
+  ggplot(simulated_data,
+         aes(x = time, y = bacteria, col = description)) +
+    #scale_color_manual(values=colors) +
+    geom_line() +
+    theme_bw() +      
+    scale_color_manual(values=colors2) +
+    ggtitle("Comparison of sequential and parallel phage cocktails")
 ```
 
 ## Main scenarios covered by our model:
@@ -521,7 +634,7 @@ Simulate_Phage_Coctail(Vh=Vh,
 
 #### Results
 - under P_N treatment bacteria can grow same well as when there is no phage (i.e. P_N will decay before capsuled bacteria mutate)
-- all treatments are less effective, especially the phage coctail
+- all treatments are less effective, especially the phage cocktail
 
 ```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
 Simulate_Phage_Coctail(Vh=Vh, 
@@ -1110,7 +1223,7 @@ Simulate_Phage_Coctail(Vh=Vh,
 - phi_non_depo: 0.05
 
 #### Results
-- the phage coctail treatments becomes less effective  
+- the phage cocktail treatments becomes less effective  
 - the P_N + depo treatment becomes less effective in short term and  <span style="color:red">more effective in long term</span>
 
 ```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
@@ -1406,7 +1519,7 @@ Simulate_Phage_Coctail(Vh=Vh,
 - decay = 1
 
 #### Results
-- The cocktail is effective for too long because phages come back to the environment even after teh bacteia stops growing
+- The cocktail is effective for too long because phages come back to the environment even after the bacteria stops growing
 
 ```{r,echo=FALSE, fig.show = "hold", out.width = "50%"}
 Simulate_Phage_Coctail(Vh=Vh, 
@@ -1463,14 +1576,14 @@ Simulate_Phage_Coctail(Vh=Vh,
 
 
 
-### 17) Coctails at different proportions of P_N and P_P
+### 17) Cocktails at different proportions of P_N and P_P
 #### Parameters 
 - beta_non_depo = 5
 - propPN = 0.1, propPN = 0.9
 
 #### Results
 - Manipulation of the initial phage frequency may be useful when we know one of the phages is weaker than the other.
-For example if the non depo phage has a low burts size and we add more of it to the mixture then we keep the bacteria load lower for a longer time than when mixing phages in the proportion 1:1.
+For example if the non depo phage has a low burst size and we add more of it to the mixture then we keep the bacteria load lower for a longer time than when mixing phages in the proportion 1:1.
 
 ```{r,echo=FALSE, fig.show = "hold", out.width = "32%"}
 Simulate_Phage_Coctail(Vh=Vh, 

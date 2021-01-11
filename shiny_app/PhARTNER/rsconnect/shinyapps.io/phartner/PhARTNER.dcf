@@ -1,0 +1,12 @@
+name: PhARTNER
+title: PhARTNER
+username:
+account: phartner
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2663178
+bundleId: 3542346
+url: https://phartner.shinyapps.io/PhARTNER/
+when: 1598025142.28736
+asMultiple: FALSE
+asStatic: FALSE

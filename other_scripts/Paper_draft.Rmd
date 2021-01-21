@@ -1,0 +1,1555 @@
+---
+title: "Phage cocktail modelling paper"
+author: "Bogna Smug"
+date: "6/3/2020"
+output:
+  html_document: 
+    number_sections: true
+  pdf_document: default
+---
+
+
+```{r setup, include=FALSE}
+library(xlsx)
+library(ggplot2)
+library(dplyr)
+
+figures_path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Projects/Z_Drulis_Kawa/manuskrypt/model_figures/"
+figures_data_path = paste0(figures_path, "figures_data.xlsx")
+experimental_figures_path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Projects/Z_Drulis_Kawa/manuskrypt/experimental_figures/"
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+text_size = 12
+save_data = TRUE
+
+  my_theme = theme(
+  panel.grid.major = element_line(colour = "black", size = 0.05),
+  panel.grid.minor = element_line(colour = "black", size = 0.05),
+  panel.background = element_rect(fill = "white",
+                                colour = "gray",
+                                size = 0.5, linetype = "solid"),
+        text = element_text(size=text_size),
+        panel.border = element_rect(linetype = "solid", fill = NA, color = "black")
+  )
+  
+#source('~/MGG Dropbox/Bogna Smug/Z_Drulis_Kawa/scripts/version5_2020_05/compare_coctail_and_depo_version_with_delayed_phages.R')
+source('/Users/bognasmug/MGG Dropbox/Bogna Smug/Projects/Z_Drulis_Kawa/phage_cocktail_efficiency/shiny_app/PhARTNER/R/helpers.R')
+
+# for visualisations of the expermiental data
+# to avoid meaningless low numbers assume that 10^6 CFU/mL is the lowest we can get 
+# CFU ABOVE OD THRESHOLD: OD = 0.55 CFU = 6.3*10^6 [CFU/mL]
+minCFU=6.3*10^6
+
+CFUFromOD = function(OD) {
+  #CFU = as.numeric(mod$coefficients[1]) + as.numeric(mod$coefficients[2])*exp(OD)
+  # this will give us CFU/mL
+  CFU = -1079035517 + 1014525658*exp(OD)
+  # this will give us CFU/L
+  #CFU = 1000*CFU
+  return(CFU)
+}
+# when plotting
+YMIN = minCFU
+YMAX = 2.5*10^9
+```
+
+```{r read-in-data}
+data486cocktails=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Projects/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+                sheet = "KP486 do papieru",
+                range = "AL67:AU116")
+data486depo=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Projects/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+                sheet = "KP486 do papieru",
+                range = "AL121:AU170")
+names(data486cocktails)[1] = "time"
+names(data486depo)[1] = "time"
+data486 = data486depo %>% 
+  left_join(data486cocktails) %>%
+  tidyr::gather(key = "treatment", value = "OD", -time) %>%
+  mutate(CFU = CFUFromOD(OD),
+         treatment = gsub(" ", "", treatment))
+
+
+data77cocktails=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Projects/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+                sheet = "KP77 do papieru ",
+                range = "BG65:BP114")
+data77depo=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Projects/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+                sheet = "KP77 do papieru ",
+                range = "BG126:BP175")
+names(data77cocktails)[1] = "time"
+names(data77depo)[1] = "time"
+data77 = data77depo %>% 
+  left_join(data77cocktails) %>%
+  tidyr::gather(key = "treatment", value = "OD", -time) %>%
+  mutate(CFU = CFUFromOD(OD),
+         treatment = gsub(" ", "", treatment))
+
+data77_1 = data77 %>% 
+  filter(treatment %in% c("Kp77","Kp77+KP15","Kp77+KP36", "Kp77+KP36gp50", "Kp77+coctail(KP36gp50+KP15)", "Kp77+coctail(KP36+KP15)")) %>%
+  mutate(type= "Kp77 + KP36 + KP15")
+
+data77_2 = data77 %>% 
+  filter(treatment %in% c("Kp77","Kp77+KP15","Kp77+KP34", "Kp77+KP34gp57", "Kp77+coctail(KP34gp57+KP15)", "Kp77+coctail(KP34+KP15)")) %>%
+  mutate(type= "Kp77 + KP34 + KP15")
+
+data77_3 = data77 %>% 
+  filter(treatment %in% c("Kp77","Kp77+KP27", "Kp77+KP36","Kp77+KP36gp50", "Kp77+coctail(KP36gp50+KP27)", "Kp77+coctail(KP36+KP27)")) %>%
+  mutate(type= "Kp77 + KP36 + KP27")
+
+data77_4 = data77 %>% 
+  filter(treatment %in% c("Kp77","Kp77+KP27", "Kp77+KP34","Kp77+KP34gp57", "Kp77+coctail(KP34gp57+KP27)", "Kp77+coctail(KP34+KP27)")) %>%
+  mutate(type= "Kp77 + KP34 + KP27")
+
+data77 = rbind(data77_1, data77_2, data77_3, data77_4)
+
+data486_1 = data486 %>% 
+  filter(treatment %in% c("Kp486","Kp486+KP15","Kp486+KP36",  "Kp486+KP36gp50", "Kp486+coctail(KP36gp50+KP15)", "Kp486+coctail(KP36+KP15)")) %>%
+  mutate(type= "Kp486 + KP36 + KP15")
+
+data486_2 = data486 %>% 
+  filter(treatment %in% c("Kp486","Kp486+KP15", "Kp486+KP34", "Kp486+KP34gp57", "Kp486+coctail(KP34gp57+KP15)", "Kp486+coctail(KP34+KP15)")) %>%
+  mutate(type= "Kp486 + KP34 + KP15")
+
+data486_3 = data486 %>% 
+  filter(treatment %in% c("Kp486","Kp486+KP27", "Kp486+KP36", "Kp486+KP36gp50", "Kp486+coctail(KP36gp50+KP27)", "Kp486+coctail(KP36+KP27)")) %>%
+  mutate(type= "Kp486 + KP36 + KP27")
+
+data486_4 = data486 %>% 
+  filter(treatment %in% c("Kp486","Kp486+KP27", "Kp486+KP34", "Kp486+KP34gp57", "Kp486+coctail(KP34gp57+KP27)", "Kp486+coctail(KP34+KP27)")) %>%
+  mutate(type= "Kp486 + KP34 + KP27")
+
+data486 = rbind(data486_1, data486_2,data486_3, data486_4)
+
+
+data = rbind(data486 %>% mutate(bacteria = "486"), data77 %>% mutate(bacteria = "77"))
+data$treat = data$treatment
+data$treat[data$treatment %in% c("Kp77", "Kp486")] = "No phage"
+data$treat[data$treatment %in% c("Kp77+KP36gp50" , 
+                                     "Kp77+KP34gp57",
+                                     "Kp486+KP36gp50", 
+                                     "Kp486+KP34gp57"
+                                     )] = "External depolymerase"
+data$treat[data$treatment %in% c("Kp77+KP36" , 
+                                 "Kp77+KP34",
+                                 "Kp486+KP36", 
+                                 "Kp486+KP34"
+                                     )] = "Phage with depolymerase"
+data$treat[data$treatment %in% c("Kp77+KP15" , 
+                                 "Kp77+KP27",
+                                 "Kp486+KP15", 
+                                 "Kp486+KP27"
+                                     )] = "Phage with no depolymerase"
+data$treat[data$treatment %in% c("Kp77+coctail(KP34gp57+KP27)" , 
+                                 "Kp77+coctail(KP34gp57+KP15)",
+                                 "Kp77+coctail(KP36gp50+KP27)", 
+                                 "Kp77+coctail(KP36gp50+KP15)",
+                                 "Kp486+coctail(KP34gp57+KP27)" , 
+                                 "Kp486+coctail(KP34gp57+KP15)",
+                                 "Kp486+coctail(KP36gp50+KP27)", 
+                                 "Kp486+coctail(KP36gp50+KP15)"
+                                     )] = "Phage with no depolymerase + external depolymerase"
+
+data$treat[data$treatment %in% c("Kp77+coctail(KP34+KP27)" , 
+                                 "Kp77+coctail(KP34+KP15)",
+                                 "Kp77+coctail(KP36+KP27)", 
+                                 "Kp77+coctail(KP36+KP15)",
+                                 "Kp486+coctail(KP34+KP27)" , 
+                                 "Kp486+coctail(KP34+KP15)",
+                                 "Kp486+coctail(KP36+KP27)", 
+                                 "Kp486+coctail(KP36+KP15)"
+                                     )] = "Phage cocktail"
+
+
+  VisualisationConstants = GetVisualisationConstants()
+  my_theme = VisualisationConstants$my_theme
+  colors = VisualisationConstants$colors
+  linetypes = VisualisationConstants$linetypes
+  linesizes = VisualisationConstants$linesizes
+  
+```
+
+
+
+
+```{r set-model-params}
+mg_count = (10^12) # we will do mathematical simulations in g/L or mg/mL
+
+default_params = SetDefaultParameters(mg_count)
+# PARAMETERS
+Tmax = default_params$Tmax
+B0  = default_params$B0
+MOI =default_params$MOI
+G0 = default_params$G0
+Vh = default_params$Vh
+Kh = default_params$Kh
+a = default_params$a
+beta_non_depo = default_params$beta_non_depo
+beta_depo = default_params$beta_depo
+phi_non_depo = default_params$phi_non_depo
+phi_depo = default_params$phi_depo
+decay = default_params$decay
+depo_decay_rate = default_params$depo_decay_rate
+e0 =default_params$e0
+V_depo = default_params$V_depo
+K_depo = default_params$K_depo
+epsilonB2toB1 = default_params$epsilonB2toB1
+epsilonB1toB2 = default_params$epsilonB1toB2
+epsilonB2toB3 = default_params$epsilonB2toB3
+epsilonB3toB2 = default_params$epsilonB3toB2
+epsilonB1toB3 = default_params$epsilonB1toB3
+epsilonB3toB1 = default_params$epsilonB3toB1
+```
+
+
+```{r}
+# set all the parameters that we vary
+initialPropB2=10^(-4)
+highB0=1000*B0
+lowB0=B0/1000
+lowG0=G0/2
+highG0=2*G0
+highEpsilonB1toB3 = 10^(-12)
+highMOI = MOI
+mediumMOI = 1
+lowMOI = 0.1
+low_phi_depo = phi_depo/20
+low_beta_depo = beta_depo/10
+low_phi_non_depo = phi_non_depo/20
+low_beta_non_depo = beta_non_depo/10
+highepsilonB2toB1 = 10*epsilonB2toB1
+lowepsilonB2toB1 =0.1*epsilonB2toB1
+highepsilontoB3 = 10^(-3)
+lowPropPP = 0.01
+
+```
+
+# Introduction TO DO
+# Model description TO DO
+# Results
+## Model reproduces the experimental result that the phage cocktail is more effective than each cocktail in seperation
+```{r, , out.width = "99%", fig.height = 2, fig.width=12}
+
+dataFig1ab = data %>% 
+         #filter(bacteria == "77") %>% 
+         filter(type %in% c("Kp77 + KP34 + KP15",
+                            "Kp77 + KP34 + KP27"
+                            )) %>%
+         filter(treat != "Phage with no depolymerase + external depolymerase"  & treat != "External depolymerase") %>%
+         rename(Treatment = treat) %>%
+         mutate(biomass = CFU/mg_count,
+         # for visualisations of the expermiental data
+        # to avoid meaningless low numbers assume that 10^9 is the lowest we can get 
+        CFU = ifelse(CFU < minCFU, minCFU, CFU)) %>% 
+        rename(all_bacteria_CFU_per_mL = CFU) %>% 
+        mutate(scenario = ifelse(type == "Kp77 + KP34 + KP15", 
+                                 "(a) Kp77 + KP34 + KP15", 
+                                 "(b) Kp77 + KP34 + KP27"))
+ 
+fig =PlotSimulatedPhageAndBacteriaMultipleScenarios(dataFig1ab, ncol = 2)
+ 
+
+ggsave(filename = paste0(experimental_figures_path, "Fig1a_Experimental_Kp77_KP34_KP15_MOI10",  ".jpg"), plot = fig, width = 15, height = 10, units = "cm")
+print(fig)
+```
+
+
+```{r}
+scenario_name = "Fig1c_Default"
+colors_no_depo = c("No phage" = "black",
+           "Phage with depolymerase" = "darkgreen",
+           "Phage with no depolymerase" = "darkblue",
+           "Phage cocktail" = "darkred")
+# Finaly evalutate simulation
+simulated_data_default =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo,                                                            
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax)
+
+write.xlsx(simulated_data_default, file=figures_data_path, sheetName = scenario_name, append = TRUE)
+dataFig1c = simulated_data_default %>%
+  mutate(scenario = "(c) Model result")
+
+fig =PlotSimulatedPhageAndBacteriaMultipleScenarios(dataFig1c,
+                              title_plot = "",
+                              colors = colors_no_depo,
+                              ymin=YMIN,
+                              ymax =YMAX,
+                              text_size = text_size) 
+print(fig)
+ggsave(filename = paste0(figures_path, scenario_name,  ".jpg"), plot = fig, width = 15, height = 10, units = "cm")
+```
+
+Note that:  
+i) in the simulations we see very qick growth all the time, whereas in experiments it slows down after 5h.
+This is probably because there are some limiting nutrients (other than glucose ) that we do not consider in our model for simplicity.  
+ii)  in the simulations bacteria under P_P treatments grows to same density as the bacteria with no phages.  
+In experiments they grow to a smaller density. It may be because:  
+-in the culture there is not enough oxygen for entire 24h  
+- there may be some fitness effects of the mutation
+
+## Model is able to reproduce known scenarios
+### Appearance of resistant mutants either via penotypic changes during the experiment or by initial diversity both lead to the same result
+Namely regrowth of bacteria after a couple ours of the standard traetment. However, phage cocktail is effective in both cases
+<Refer to Bull 2014>
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "49%"}
+fig =PlotSimulatedPhageAndBacteria(simulated_data_default,
+                              title_plot = "Default",
+                              colors = colors_no_depo,
+                              text_size = text_size) 
+print(fig)
+
+scenario_name = "Fig1e_No_mutation_but_initial_B_N"
+simulated_data =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=0, 
+                       epsilonB1toB2=0,
+                       epsilonB2toB3=0, 
+                       epsilonB3toB2=0,
+                       epsilonB1toB3=0, 
+                       epsilonB3toB1=0,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       propB2init = initialPropB2)
+  if (save_data) {   write.xlsx(simulated_data, file=figures_data_path, sheetName = scenario_name, append = TRUE)   }
+dataFig1e = simulated_data %>%
+  mutate(scenario = "(e) No phenotypic changes & initial B_N")
+fig =PlotSimulatedPhageAndBacteriaMultipleScenarios(dataFig1e,
+                              title_plot = "",
+                              colors = colors_no_depo,
+                              ymin=YMIN,
+                              ymax = YMAX,
+                              text_size = text_size) 
+print(fig)
+ggsave(filename = paste0(figures_path, scenario_name,  ".jpg"), plot = fig, width = 15, height = 10, units = "cm")
+
+```
+
+
+### In absence of any phenotypic changes the standard treatment is effective
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "49%"}
+fig =PlotSimulatedPhageAndBacteria(simulated_data_default,
+                              title_plot = "Default",
+                              colors = colors_no_depo,
+                              text_size = text_size) 
+print(fig)
+
+scenario_name = "Fig1d_No_mutation"
+simulated_data =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=0, 
+                       epsilonB1toB2=0,
+                       epsilonB2toB3=0, 
+                       epsilonB3toB2=0,
+                       epsilonB1toB3=0, 
+                       epsilonB3toB1=0,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax)
+
+  if (save_data) {   write.xlsx(simulated_data, file=figures_data_path, sheetName = scenario_name, append = TRUE)   }
+dataFig1d = simulated_data %>%
+  mutate(scenario = "(d) No phenotypic changes")
+fig =PlotSimulatedPhageAndBacteriaMultipleScenarios(dataFig1d,
+                              title_plot = "",
+                              colors = colors_no_depo,
+                              ymin= YMIN,
+                              ymax = YMAX,
+                              text_size = text_size) 
+print(fig)
+ggsave(filename = paste0(figures_path, scenario_name,  ".jpg"), plot = fig, width = 15, height = 10, units = "cm")
+```
+
+```{r plot-entire-fig-1}
+dataFig1 = rbind(dataFig1ab %>%  select(time, Treatment, all_bacteria_CFU_per_mL, scenario), 
+                 dataFig1c %>% select(time, Treatment, all_bacteria_CFU_per_mL, scenario),
+                 dataFig1d %>% select(time, Treatment, all_bacteria_CFU_per_mL, scenario),
+                 dataFig1e %>% select(time, Treatment, all_bacteria_CFU_per_mL, scenario))
+fig =PlotSimulatedPhageAndBacteriaMultipleScenarios(dataFig1,
+                              title_plot = "",
+                              colors = colors_no_depo,
+                              ymin= YMIN,
+                              ymax = YMAX,
+                              text_size = text_size,
+                              ncol = 2) +
+  theme(legend.position = c(0.9,0.1),
+        legend.justification  = c(1,0))
+print(fig)
+ggsave(filename = paste0(figures_path, "Fig1",  ".jpg"), plot = fig, width = 30, height = 30, units = "cm") 
+
+```
+
+### There is some initial bacterial abundance threshold
+We confirm that a sandard phage treatment start eradicting bacteria much sooner when there is high initial bacterial load.
+Otherwise, the bacteria may still grow before phages multiplicate enough to become effective.
+In natural scenario it may also mean that the phages will decay or be cleared by the system before they start clearing bacteria
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "49%"}
+
+scenario_name = "Fig2_bacteria_high_initial_threshold"
+simulated_data =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=highB0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = 5)
+  if (save_data) {   write.xlsx(simulated_data, file=figures_data_path, sheetName = scenario_name, append = TRUE)   }
+
+
+dataToPlot_Deafult = simulated_data_default %>% 
+  filter(Treatment == "Phage with depolymerase") %>% 
+  filter(time %in% c(0,1)) %>%
+  select(time, all_bacteria_CFU_per_mL) %>%
+  mutate(Initial.Biomass = "low.bacterial.load")
+
+dataToPlot_HighBiomass = simulated_data %>% 
+  filter(Treatment == "Phage with depolymerase") %>% 
+  filter(time %in% c(0,1)) %>%
+  select(time, all_bacteria_CFU_per_mL) %>%
+  mutate(Initial.Biomass = "high.bacterial.load")
+
+dataToPlot = rbind(dataToPlot_HighBiomass, dataToPlot_Deafult) %>%
+  mutate(time = ifelse(time == 0, "Initial", "After 1h")) %>%
+  mutate(time = factor(time, levels = c("Initial", "After 1h")))
+
+fig = ggplot(data = dataToPlot) +
+  geom_col(aes(x=time, y = all_bacteria_CFU_per_mL), 
+           col = "darkblue", fill = "darkblue") + 
+  facet_grid(Initial.Biomass ~.) +
+  theme_bw() +
+  scale_y_log10() +
+  xlab("") +
+  ylab("bacteria [CFU/mL]")
+
+print(fig)
+ggsave(filename = paste0(figures_path, scenario_name,  ".jpg"), plot = fig, width = 15, height = 10, units = "cm")
+```
+
+## We set out to verify if the model can explain our further data
+### Kp486+KP15 vs the rest (different bacteria behaviour)
+Kp486 is partially resistant to KP15 phage meaning that phage has a smaller burst size after infection of Kp486 than Kp77
+Moreover, we notice that Kp486 undergoes a phenotypic change after which it forms some mucoidal cells which happen to be resistant to adsorption of our non-depo phage.
+ll together, we observe in the experimental data that the phage cocktail that includes KP15 phage is less effective on Kp486 than on KP77.
+Indeed, if we allow in the model a lower burst size and some rate of change between bacteria B1 (with the capsule) and B3 (fully resistant to depo and non-depo phage) we will get some bacterial regrowth under the cocktail treatment.
+
+
+
+```{r, fig.wisdth = 12}
+
+
+dataFig3a = data %>% 
+         filter(type %in% c("Kp486 + KP34 + KP15"
+                        #"Kp486 + KP36 + KP15")
+                        )) %>% 
+        filter(treat != "Phage with no depolymerase + external depolymerase"  & treat != "External depolymerase") %>% 
+         rename(Treatment = treat) %>%
+         mutate(biomass = CFU/mg_count,
+      # for visualisations of the expermiental data
+        # to avoid meaningless low numbers assume that 10^9 is the lowest we can get 
+        CFU = ifelse(CFU < minCFU, minCFU, CFU)) %>%
+        rename(all_bacteria_CFU_per_mL = CFU) %>% 
+        mutate(scenario = "(a) Kp77 + KP34 + KP15")
+ 
+fig =PlotSimulatedPhageAndBacteriaMultipleScenarios(dataFig3a, ncol = 2)
+
+
+ggsave(filename = paste0(experimental_figures_path, "Fig3a_Experimental_Kp486_KP34_KP15_MOI10",  ".jpg"), plot = fig, width = 15, height = 10, units = "cm")
+print(fig)
+```
+
+```{r}
+fig =PlotSimulatedPhageAndBacteria(simulated_data_default,
+                              title_plot = "Default",
+                              colors =colors_no_depo,
+                              text_size = text_size)
+print(fig)
+
+
+scenario_name = "Fig3b_high_B1_to_B3_switch"
+simulated_data =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=highEpsilonB1toB3, 
+                       epsilonB3toB1=highEpsilonB1toB3,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax)
+
+  if (save_data) {   write.xlsx(simulated_data, file=figures_data_path, sheetName = scenario_name, append = TRUE)   }
+dataFig3b = simulated_data %>%
+               mutate(scenario = "(b) Model result: high rate of change between B_P and B_R")
+fig =PlotSimulatedPhageAndBacteriaMultipleScenarios(dataFig3b,
+                              title_plot = "",
+                              colors = colors_no_depo,
+                              ymin=YMIN,
+                              ymax = YMAX,
+                              text_size = text_size) 
+print(fig)
+ggsave(filename = paste0(figures_path, scenario_name,  ".jpg"), plot = fig, width = 15, height = 10, units = "cm")
+
+#Note that:  
+#
+#i)  in the simulations bacteria under the phage cocktail treatment eventually grows to the same density as the bacteria with no phages. 
+#In experiments they grow to a smaller density. It may be because:  
+#- in the culture after 10-15 hours there is not enough oxygen for the complete regrowth  
+#- there may be some fitness costs of becoming mucoidal#
+#
+#ii)  in the simulations bacteria under the phage cocktail treatment start growing for some short time and then the growth is ceased. 
+#In experiments they grow to some small density and stop there. It may be because  
+#- phages decay more when trying to adsorb to the 'wrong' bacteria (i.e. non-depo phages trying to adsorb to bacteria with capsule)
+
+
+```
+
+```{r plot-entire-fig-1}
+dataFig3 = rbind(dataFig3a %>%  select(time, Treatment, all_bacteria_CFU_per_mL, scenario), 
+                 dataFig3b %>% select(time, Treatment, all_bacteria_CFU_per_mL, scenario))
+fig =PlotSimulatedPhageAndBacteriaMultipleScenarios(dataFig3,
+                              title_plot = "",
+                              colors = colors_no_depo,
+                              ymin= YMIN,
+                              ymax = YMAX,
+                              text_size = text_size,
+                              ncol = 2) 
+print(fig)
+ggsave(filename = paste0(figures_path, "Fig3",  ".jpg"), plot = fig, width = 45, height = 10, units = "cm")
+
+``` 
+### Non-depo phage and external depolymerase
+We are also able to reproduce the scenario in which depolymerase is added externally to the bacterial culture.
+That treatment is also effective although less than the phage cokctail because depolymerase decays with time.
+
+```{r, out.width = "99%", fig.height = 3, fig.width=12}
+
+
+dataFig4ab = data %>% 
+         #filter(bacteria == "77") %>% 
+         filter(type %in% c("Kp77 + KP34 + KP15",
+                            "Kp77 + KP34 + KP27"
+                            #"Kp486 + KP34 + KP15"
+                            )) %>%
+           filter(treat != "External depolymerase") %>%
+         rename(Treatment = treat) %>%
+         mutate(biomass = CFU/mg_count,
+                type = paste0(type, " + depolymerase"),
+                      # for visualisations of the expermiental data
+                  # to avoid meaningless low numbers assume that 10^9 is the lowest we can get 
+                CFU = ifelse(CFU < minCFU, minCFU, CFU)) %>%      
+        rename(all_bacteria_CFU_per_mL = CFU) %>% 
+        mutate(scenario = ifelse(type == "Kp77 + KP34 + KP15 + depolymerase",
+        "(a) Kp77 + KP34 + KP15 + depolymerase",
+        "(b) Kp77 + KP34 + KP27 + depolymerase"))
+ 
+fig =PlotSimulatedPhageAndBacteriaMultipleScenarios(dataFig4ab, ncol = 2)
+
+
+
+
+ggsave(filename = paste0(experimental_figures_path, "Fig4ab_Experimental_with_depo",  ".jpg"), plot = fig, width = 30, height = 10, units = "cm")
+print(fig)
+```
+
+```{r}
+ 
+
+# check when bacteria decreases under the DEPO as it does for Kp486 + KP15 + depoKP34
+depodata = simulated_data_default %>% 
+  filter(Treatment == "Phage with no depolymerase + external depolymerase")
+dataFig4d = depodata %>% 
+             select(time, `Capsulated bacteria` = bacteria_capsule, 
+                    `Decapsulated bacteria` = bacteria_no_capsule, 
+                    `All bacteria` = all_bacteria_CFU_per_mL) %>%
+         tidyr::gather(key = "Bacterial.Type", value = "CFU.Per.mL", 
+                       `Capsulated bacteria`, `Decapsulated bacteria`, `All bacteria`) %>%
+           mutate(scenario = "(d) Model result: explanation")
+
+fig=ggplot(dataFig4d) +
+  geom_line(aes(x=time,y= CFU.Per.mL, col = Bacterial.Type)) +
+  scale_y_log10()  +
+    xlab("time [h]") +
+    ylab("bacteria [CFU/mL]") + 
+    scale_y_log10() +
+    my_theme + facet_wrap("scenario", ncol =1)
+
+ggsave(filename = paste0(figures_path, "Fig4d_Model_with_depo_explanation",  ".jpg"), plot = fig, width = 15, height = 10, units = "cm")
+print(fig)
+```
+
+```{r plot-entire-fig-4}
+dataFig4c = simulated_data_default %>% 
+  mutate(scenario = "(c) Model result")
+
+dataFig4 = rbind(dataFig4ab %>%  select(time, Treatment, all_bacteria_CFU_per_mL, scenario), 
+                 dataFig4c %>%  select(time, Treatment, all_bacteria_CFU_per_mL, scenario))
+fig =PlotSimulatedPhageAndBacteriaMultipleScenarios(dataFig4,
+                              title_plot = "",
+                              ymin= YMIN,
+                              ymax = YMAX,
+                              text_size = text_size,
+                              ncol = 2) +
+  theme(legend.position = c(0.9,0.1),
+        legend.justification  = c(1,0))
+print(fig)
+ggsave(filename = paste0(figures_path, "Fig4",  ".jpg"), plot = fig, width = 30, height = 20, units = "cm")
+
+``` 
+
+### MOI: not much change
+The treatments have similar effects for various MOI
+
+```{r}
+
+data77_27and34=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Projects/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+                sheet = "KP77 do papieru ",
+                range = "W122:AA171", col_names = FALSE)
+names(data77_27and34) = c("time","MOI 10", "MOI 1", "MOI 0.1", "MOI 0.01")
+data77_27anddepo34=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Projects/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+                sheet = "KP77 do papieru ",
+                range = "AN179:AR227", col_names = FALSE)
+names(data77_27anddepo34) = c("time","MOI 10", "MOI 1", "MOI 0.1", "MOI 0.01")
+data77_34=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Projects/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+                sheet = "KP77 do papieru ",
+                range = "M13:V61", col_names = FALSE)
+names(data77_34) = c("MOI10:1", "MOI10:2", "MOI1:1","MOI1:2","MOI1:3","MOI1:4", "MOI01:1","MOI01:2", "MOI001:1","MOI001:2")
+data77_34$time = data77_27anddepo34$time
+data77_34MOI10 = data77_34 %>% select("time", "MOI10:1", "MOI10:2") %>%
+  group_by(time) %>%
+  summarise(`MOI 10` = mean(`MOI10:1`, `MOI10:2`)) %>%
+  tidyr::gather(key = "MOI", value = "OD", -time)
+
+data77_34MOI1 = data77_34 %>% select("time", "MOI1:1", "MOI1:2","MOI1:3", "MOI1:4") %>%
+  group_by(time) %>%
+  summarise(`MOI 1` = mean(`MOI1:1`, `MOI1:2`,`MOI1:3`, `MOI1:4`)) %>%
+  tidyr::gather(key = "MOI", value = "OD", -time)
+
+data77_34MOI01 = data77_34 %>% select("time", "MOI01:1", "MOI01:2") %>%
+  group_by(time) %>%
+  summarise(`MOI 0.1` = mean(`MOI01:1`, `MOI01:2`)) %>%
+  tidyr::gather(key = "MOI", value = "OD", -time)
+
+data77_34 = rbind(data77_34MOI10,data77_34MOI1,data77_34MOI01) %>%
+  mutate(description = "Phage with depolymerase")%>%
+  mutate(biomass = CFUFromOD(as.numeric(OD))/mg_count)
+
+data77_27and34 = data77_27and34 %>%
+  tidyr::gather(key = "MOI", value = "OD", -time) %>%
+  mutate(biomass = CFUFromOD(as.numeric(OD))/mg_count) %>%
+  mutate(description = "Phage cocktail")
+
+data77_27anddepo34 = data77_27anddepo34 %>%
+  tidyr::gather(key = "MOI", value = "OD", -time) %>%
+  mutate(biomass = CFUFromOD(as.numeric(OD))/mg_count) %>%
+  mutate(description =  "Phage with no depolymerase + external depolymerase")
+
+dd_77_27_34 = rbind(data77_27and34, data77_27anddepo34,data77_34) %>% 
+  filter(MOI != 'MOI 0.01') %>%
+  mutate(CFU = biomass*mg_count) %>%
+  mutate( # for visualisations of the expermiental data
+        # to avoid meaningless low numbers assume that 10^9 is the lowest we can get 
+        CFU = ifelse(CFU < minCFU, minCFU, CFU))
+
+dd_77_27_34 = dd_77_27_34 %>% mutate(scenario = "(a) Kp77 + KP34 + KP27 + depolymerase", Treatment = description)
+
+
+fig=ggplot(dd_77_27_34, aes(x=time, y=CFU, col = Treatment, linetype = Treatment, size = Treatment)) +
+  geom_line() +
+  my_theme +
+  scale_y_log10() +
+  scale_color_manual(values=colors)  +
+      scale_linetype_manual(values = linetypes) +
+        scale_size_manual(values = linesizes) +
+      xlab("time [h]") +
+    ylab("bacteria [CFU/mL]") +
+    facet_grid(. ~ MOI)
+
+print(fig)
+#ggsave(filename = paste0(experimental_figures_path, "Experimental_Kp77_KP34_KP27_various_MOI",  ".jpg"), plot = fig, width = 15, height = 10, units = "cm")
+```
+
+```{r}
+
+data77_15and34=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Projects/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+                sheet = "KP77 do papieru ",
+                range = "W68:AA116", col_names = FALSE)
+names(data77_15and34) = c("time","MOI 10", "MOI 1", "MOI 0.1", "MOI 0.01")
+data77_15anddepo34=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Projects/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+                sheet = "KP77 do papieru ",
+                range = "AI179:AM227", col_names = FALSE)
+names(data77_15anddepo34) = c("time","MOI 10", "MOI 1", "MOI 0.1", "MOI 0.01")
+data77_34=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Projects/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+                sheet = "KP77 do papieru ",
+                range = "M13:V61", col_names = FALSE)
+names(data77_34) = c("MOI10:1", "MOI10:2", "MOI1:1","MOI1:2","MOI1:3","MOI1:4", "MOI01:1","MOI01:2", "MOI001:1","MOI001:2")
+data77_34$time = data77_15anddepo34$time
+data77_34MOI10 = data77_34 %>% select("time", "MOI10:1", "MOI10:2") %>%
+  group_by(time) %>%
+  summarise(`MOI 10` = mean(`MOI10:1`, `MOI10:2`)) %>%
+  tidyr::gather(key = "MOI", value = "OD", -time)
+
+data77_34MOI1 = data77_34 %>% select("time", "MOI1:1", "MOI1:2","MOI1:3", "MOI1:4") %>%
+  group_by(time) %>%
+  summarise(`MOI 1` = mean(`MOI1:1`, `MOI1:2`,`MOI1:3`, `MOI1:4`)) %>%
+  tidyr::gather(key = "MOI", value = "OD", -time)
+
+data77_34MOI01 = data77_34 %>% select("time", "MOI01:1", "MOI01:2") %>%
+  group_by(time) %>%
+  summarise(`MOI 0.1` = mean(`MOI01:1`, `MOI01:2`)) %>%
+  tidyr::gather(key = "MOI", value = "OD", -time)
+
+data77_34 = rbind(data77_34MOI10,data77_34MOI1,data77_34MOI01) %>%
+  mutate(description = "Phage with depolymerase")%>%
+  mutate(biomass = CFUFromOD(as.numeric(OD))/mg_count)
+
+data77_15and34 = data77_15and34 %>%
+  tidyr::gather(key = "MOI", value = "OD", -time) %>%
+  mutate(biomass = CFUFromOD(as.numeric(OD))/mg_count) %>%
+  mutate(description = "Phage cocktail")
+
+data77_15anddepo34 = data77_15anddepo34 %>%
+  tidyr::gather(key = "MOI", value = "OD", -time) %>%
+  mutate(biomass = CFUFromOD(as.numeric(OD))/mg_count) %>%
+  mutate(description =  "Phage with no depolymerase + external depolymerase")
+
+dd_77_15_34 = rbind(data77_15and34, data77_15anddepo34,data77_34) %>% 
+  filter(MOI != 'MOI 0.01') %>%
+  mutate(CFU = biomass*mg_count) %>%
+  mutate( # for visualisations of the expermiental data
+        # to avoid meaningless low numbers assume that 10^9 is the lowest we can get 
+        CFU = ifelse(CFU < minCFU, minCFU, CFU))
+dd_77_15_34 = dd_77_15_34 %>% mutate(scenario = "(b) Kp77 + KP34 + KP15 + depolymerase", Treatment = description)
+
+
+fig=ggplot(dd_77_15_34,
+           aes(x=time, y=CFU, col = Treatment, linetype = Treatment, size = Treatment)) +
+  geom_line() +
+  my_theme +
+  scale_y_log10() +
+  scale_color_manual(values=colors)  +
+  scale_linetype_manual(values = linetypes) +
+        scale_size_manual(values = linesizes) +
+      xlab("time [h]") +
+    ylab("bacteria [CFU/mL]") +
+    facet_grid(MOI ~scenario )
+
+dataFig5ab = rbind(dd_77_15_34,dd_77_27_34)
+fig=ggplot(dataFig5ab,
+           aes(x=time, y=CFU, col = Treatment, linetype = Treatment, size = Treatment)) +
+  geom_line() +
+  my_theme +
+  scale_y_log10() +
+  scale_color_manual(values=colors)  +
+  scale_linetype_manual(values = linetypes) +
+        scale_size_manual(values = linesizes) +
+      xlab("time [h]") +
+    ylab("bacteria [CFU/mL]") +
+    facet_grid(MOI ~scenario )
+print(fig)
+ggsave(filename = paste0(experimental_figures_path, "Fig5ab_Experimental_Kp77_KP34_KP15_various_MOI",  ".jpg"), plot = fig, width = 40, height = 10, units = "cm")
+```
+
+```{r, fig.show = "hold", out.width = "33%"}
+
+
+scenario_name="Fig5b_medium_MOI"
+# Finaly evalutate simulation
+
+simulated_data_medium_MOI =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo,                                                            
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =mediumMOI, 
+                       G0=G0, 
+                       Tmax = Tmax)
+
+if (save_data) {
+  write.xlsx(simulated_data_medium_MOI, file=figures_data_path, sheetName = scenario_name, append = TRUE)
+}
+
+scenario_name = "Fig5b_low_MOI"
+simulated_data_low_MOI =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo,                                                            
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =lowMOI, 
+                       G0=G0, 
+                       Tmax = Tmax)
+
+if (save_data) {
+  write.xlsx(simulated_data_low_MOI, file=figures_data_path, sheetName = scenario_name, append = TRUE)
+}
+simulated_data_MOI = rbind(simulated_data_low_MOI %>% mutate(MOI="MOI 0.1"),
+                           simulated_data_medium_MOI  %>% mutate(MOI="MOI 1"),
+                           simulated_data_default  %>% mutate(MOI="MOI 10"))
+
+
+  colors_fig_5 = c("Phage with depolymerase" = "darkgreen",
+           "Phage with no depolymerase + external depolymerase" = "darkmagenta",
+           "Phage cocktail" = "darkred")
+  
+  descriptions_to_show = names(colors_fig_5)
+  
+  dataFig5c = simulated_data_MOI %>% 
+              filter(Treatment %in% descriptions_to_show) %>%
+              mutate(all_bacteria_CFU_per_mL = ifelse(all_bacteria_CFU_per_mL > minCFU, all_bacteria_CFU_per_mL, minCFU),
+                     scenario = "Model result")
+  
+  fig=ggplot(dataFig5c,
+            aes(x = time, y = all_bacteria_CFU_per_mL, col = Treatment, linetype = Treatment, size = Treatment)) +
+    scale_color_manual(values=colors_fig_5) +
+        scale_linetype_manual(values = linetypes) +
+          scale_size_manual(values = linesizes) +
+    geom_line() +
+    xlab("time [h]") +
+    ylab("bacteria [CFU/mL]") + 
+    scale_y_log10(limits = c(YMIN, YMAX)) +
+    my_theme +
+    xlim(c(0,24)) +
+    facet_grid(MOI ~scenario)
+print(fig)
+ggsave(filename = paste0(figures_path, "Fig5b_various_MOI",  ".jpg"), plot = fig, width = 15, height = 10, units = "cm")
+```
+
+```{r Fig5}
+
+dataFig5abc = rbind(dataFig5ab %>% 
+                      select(time, Treatment, all_bacteria_CFU_per_mL=CFU, MOI, scenario), 
+                    dataFig5c %>% 
+                      select(time, Treatment, all_bacteria_CFU_per_mL, MOI, scenario))
+
+fig = PlotSimulatedPhageAndBacteria(dataFig5abc) +
+  facet_grid(MOI ~ scenario) +
+  theme(legend.position = "bottom")
+print(fig)
+ggsave(filename = paste0(figures_path, "Fig5_various_MOI",  ".jpg"), plot = fig, width = 30, height = 10, units = "cm")
+```
+
+## We use our model to show that the sequential phage cocktail treatment is more effective than the parallel one
+
+### Assuming receptors are lost independently with the same probability 
+and that the Non-depo phage can attach to bacteria that lost one specific receptor (no necessarily the other)
+
+```{r}
+
+# here for simplicity we ignore mutations to the fully restistant type
+  # B1 - bacteria with both receptors sentitive to Pdepo (attaches to receptor A) and P2 (attaches to receptor B)
+  # B2 - bacteria with receptor A, and lost receptor B, sensitive to Pdepo (attaches to receptor A)
+  # B3 - bacteria with receptor B, and lost receptor A, sensitive to Pnondepo (attaches to the lost receptor A) and P2 (attaches to receptor B)
+  # B4 - bacteria without either:lost receptor A and B, sensitive to Pnondepo (attaches to the lost receptor A)
+  
+  # Pdepo (attaches to receptor A and encodes depolymerase) therefore it makes some of the bacteria loose that receptor and still keep alive if we assume c > 0!
+  # P2 (attaches to receptor B)
+  # Pnondepo (attaches to the lost receptor A and doesn;t encode depolymerase) 
+
+
+  colors2 = c("No phage" = "black",
+               "Sequential cocktail" = "red",
+               "Simultaneous cocktail" = "darkblue")
+  descriptions = names(colors2)
+  epsilon_compare_models = 10^(-3)
+  
+  
+beta2 = beta_non_depo
+phi2 = phi_non_depo
+  pars =  c(a = a, 
+            Vh = Vh, 
+            Kh = Kh,
+            beta_non_depo = beta_non_depo, 
+            beta2 = beta2,
+            beta_depo = beta_depo, 
+            phi_non_depo = phi_non_depo, 
+            phi2 = phi2, 
+            phi_depo = phi_depo,
+            decay = decay, 
+            bf = 1,
+            epsilonB2toB1 = 0,#epsilon, 
+            epsilonB1toB2 = epsilon_compare_models,
+            epsilonB2toB4 = epsilon_compare_models,
+            epsilonB4toB2 = 0,#epsilon,
+            epsilonB1toB3 = epsilon_compare_models,
+            epsilonB3toB1 = 0,#epsilon,
+            epsilonB3toB4 = epsilon_compare_models,
+            epsilonB4toB3 = 0#epsilon
+            )
+  
+  time = seq(0,Tmax,1)
+  P0=B0*MOI;  
+inits = 
+            c(G = G0, 
+              Pdepo = 0.5*P0,
+              P2 = 0,
+              Pnondepo = 0.5*P0,
+              B1= B0,
+              B2 = 0,
+              B3 = 0,
+              B4 = 0)
+
+    simulation <- as.data.frame(ode(inits, time, two_simultaneous_phages_and_bacteria_with_two_receptors, pars))%>%
+      mutate(all.bacteria = B1+B2+ B3+B4) %>%
+      rename(`Bacteria.Receptors.A&B` = B1,
+             `Bacteria.Receptor.A` = B2,
+             `Bacteria.Receptor.B` = B3,
+             `Bacteria.No.Receptors` = B4,
+             ) %>%
+      tidyr::gather(key = "Bacteria.Type", value = biomass, -time, -G,-Pdepo,-P2, -Pnondepo) %>%
+      mutate(description = descriptions[2],
+             CFU= biomass*mg_count/1000)
+    simulated_data = simulation
+    
+    inits['Pdepo'] = 0
+    inits['Pnondepo'] = 0
+    simulation <- as.data.frame(ode(inits, time, two_simultaneous_phages_and_bacteria_with_two_receptors, pars))%>%
+      mutate(all.bacteria = B1+B2+ B3+B4) %>%
+            rename(`Bacteria.Receptors.A&B` = B1,
+             `Bacteria.Receptor.A` = B2,
+             `Bacteria.Receptor.B` = B3,
+             `Bacteria.No.Receptors` = B4,
+             )%>%
+      tidyr::gather(key = "Bacteria.Type", value = biomass, -time, -G,-Pdepo,-P2, -Pnondepo) %>%
+      mutate(description = descriptions[1],
+             CFU= biomass*mg_count/1000)
+    simulated_data = rbind(simulated_data, simulation)
+    
+    inits['Pdepo'] = 0.5*P0
+    inits['Pnondepo'] = 0
+    inits['P2'] = 0.5*P0
+    simulation <- as.data.frame(ode(inits, time, two_simultaneous_phages_and_bacteria_with_two_receptors, pars))%>%
+      mutate(all.bacteria = B1+B2+ B3+B4) %>%
+            rename(`Bacteria.Receptors.A&B` = B1,
+             `Bacteria.Receptor.A` = B2,
+             `Bacteria.Receptor.B` = B3,
+             `Bacteria.No.Receptors` = B4,
+             )%>%
+      tidyr::gather(key = "Bacteria.Type", value = biomass, -time, -G,-Pdepo,-P2, -Pnondepo) %>%
+      mutate(description = descriptions[3],
+             CFU= biomass*mg_count/1000)
+    simulated_data = rbind(simulated_data, simulation) 
+  
+  scenario_name = "Fig6_compare_traditional_cocktails"#
+  
+
+    if (save_data) {   write.xlsx(simulated_data, file=figures_data_path, sheetName = scenario_name, append = TRUE)   }
+  
+  g=ggplot(simulated_data %>% 
+             filter(Bacteria.Type == "all.bacteria") %>%
+             mutate(`Treatment type` = description,
+                    scenario = "(a) Comparison of sequential and simultaneous phage cocktails" ),
+         aes(x = time, y = CFU, col = `Treatment type`)) +
+    #scale_color_manual(values=colors) +
+    geom_line() + 
+    #theme_bw() +      
+    scale_color_manual(values=colors2) +
+    my_theme +
+    facet_grid(.~scenario) +
+    ylab("bacteria [CFU/mL]") 
+  ggsave(filename = paste0(figures_path, "Fig6a_Traditional_cocktail_comparison1",  ".jpg"), plot = g, width = 20, height = 10, units = "cm")
+  print(g)
+  
+
+  dataFig6bcd = simulated_data %>% 
+             filter(Bacteria.Type != "all.bacteria") %>%
+             mutate(description = ifelse(description == "No phage", 
+                                         "b) No phage",
+                                         ifelse(description == "Sequential cocktail", 
+                                                "c) Sequential cocktail",
+                                                "d) Simultaneous cocktail"
+                                                )))
+                    
+  g=ggplot(dataFig6bcd, 
+         aes(x=time, y=CFU, col = Bacteria.Type)) +
+    geom_line() +
+    my_theme +
+    facet_grid(. ~ description) +
+    ylab("bacteria [CFU/mL]")
+  
+  # legend only
+    leg = ggpubr::get_legend(g)
+    l=ggpubr::as_ggplot(leg)
+
+
+  ggsave(filename = paste0(figures_path, "Fig6bcd_Traditional_cocktail_comparison",  ".jpg"),
+         plot = g + theme(legend.position = "bottom"),#+ theme(legend.position = "none")
+         width = 45, height = 10, units = "cm")
+  
+    ggsave(filename = paste0(figures_path, "Fig6bcd_Traditional_cocktail_comparison_legend",  ".jpg"), plot = l, width = 15, height = 10, units = "cm")
+  print(g)
+```
+
+## Choice of phages and time horizon 
+
+### Choice of the depo phage
+If the phage with depolymerase is less efficient at infecting the capsuled bacteria, the bacteria will initially grow before phages multiplicate enough to infect the bacteria. This may be unwanted in real treatments.
+Interestingly though, such a change may decrease the final bacteria load in long term. This is because bacteria in our experiment grow in a batch culture and their initial growth will result in a decrease in the resource they can use later.
+
+```{r,echo=FALSE}
+scenario_name = "Fig7a_low_depo_adsorption"
+simulated_data_Fig7a =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=low_phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax)
+write.xlsx(simulated_data_Fig7a, file=figures_data_path, sheetName = scenario_name, append = TRUE)
+
+
+scenario_name = "Fig7b_low_depo_burst"
+simulated_data_Fig7b =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=low_beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax)
+write.xlsx(simulated_data_Fig7b, file=figures_data_path, sheetName = scenario_name, append = TRUE)
+
+```
+
+### Choice of the non-depo phage
+If the phage without depolymerase is less efficient at infecting the uncapsuled bacteria, the uncapsuled bacteria that will appear after a couple of hours in the populatiom will initially grow before phages multiplicate enough to infect the bacteria. Again, this may be unwanted in real treatments.
+Interestingly though, such a change may decrease the final bacteria load in long term. This happens if the resources bacteria can use for growth are limited as in the caae of our expeirment
+
+```{r,echo=FALSE}
+scenario_name = "Fig7c_low_non_depo_adsorption"
+simulated_data_low_phi_non_depo =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=low_phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax)
+write.xlsx(simulated_data_low_phi_non_depo, file=figures_data_path, sheetName = scenario_name, append = TRUE)
+
+
+
+scenario_name="Fig7d_low_non_depo_burst"
+simulated_data_Fig7d =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=low_beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax)
+  if (save_data) {   write.xlsx(simulated_data, file=figures_data_path, sheetName = scenario_name, append = TRUE)   }
+
+
+all_fig7_data =
+     simulated_data_Fig7a %>% 
+      mutate(scenario  = "(a) Low P_P adsorption rate") %>%
+     rbind(simulated_data_Fig7b %>% mutate(scenario  = "(b) Low P_P burst size"))  %>%
+     rbind(simulated_data_low_phi_non_depo %>% mutate(scenario  = "(c) Low P_N adsorption rate")) %>%
+     rbind(simulated_data_Fig7d %>% mutate(scenario  = "(d) Low P_N burst size"))
+
+
+
+fig=PlotSimulatedPhageAndBacteriaMultipleScenarios(all_fig7_data,
+                              title_plot = "",
+                              colors = colors,
+                              ymin=YMIN,
+                              ymax = YMAX,
+                              text_size = text_size,
+                              ncol = 2) 
+print(fig)
+ggsave(filename = paste0(figures_path, 'Fig7',  ".jpg"), plot = fig, width = 30, height = 20, units = "cm")
+```
+
+### Proportion of phages
+Manipulation of the initial phage frequency may be useful when we know one of the phages is weaker than the other.
+For example if the non depo phage has a low burst size and we add more of it to the mixture then we keep the bacteria load lower for a longer time than when mixing phages in the proportion 1:1.
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "32%"}
+
+
+scenario_name = "Fig8c_low_propPP_low_non_depo_adsorption"
+simulated_data_Fig8c =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=low_phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = Tmax, 
+                       propPP = lowPropPP)
+
+if (save_data) {
+  write.xlsx(simulated_data_Fig8c, file=figures_data_path, sheetName = scenario_name, append = TRUE)
+}
+
+
+all_fig8_data =
+     simulated_data_default %>% 
+      mutate(scenario  = "(a) Standard (default parameters)") %>%
+     rbind(simulated_data_low_phi_non_depo %>% mutate(scenario  = "(b) Low P_N  adsorption rate"))  %>%
+     rbind(simulated_data_Fig8c %>% mutate(scenario  = "(c) Low P_N adsorption rate & low proportion of P_P")) 
+
+
+fig8=PlotSimulatedPhageAndBacteriaMultipleScenarios(all_fig8_data,
+                              title_plot = "",
+                              colors = colors,
+                              ymin=YMIN,
+                              ymax = YMAX,
+                              text_size = text_size, 
+                              ncol = 2) +
+  theme(legend.position = c(0.9,0.2),
+        legend.justification = c(1,0))
+print(fig8)
+ggsave(filename = paste0(figures_path, 'Fig8',  ".jpg"), plot = fig8, width = 30, height = 20, units = "cm")
+
+```
+
+
+## Eventually we explore some further unintuitive scenarios and the robustness of our phage cocktail treatment
+
+### The efficiency of the phage cocktail is relatively robust to initial bacteria biomass  
+The external depo & non-phage therapy seems to be more efficient at high bacterial load
+and bacteria start re-growing later at very load bacterial load. The combined phage treatment results in all cases in no bacterial growth for the first 24 hours
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "33%"}
+scenario_name = "Fig9b_low_initial_biomass"
+simulated_data_Fig9b =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=lowB0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = 24)
+write.xlsx(simulated_data_Fig9b, file=figures_data_path, sheetName = scenario_name, append = TRUE)
+
+
+
+scenario_name = "Fig9c_high_initial_biomass"
+simulated_data_Fig9c =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=highB0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = 24)
+write.xlsx(simulated_data_Fig9c, file=figures_data_path, sheetName = scenario_name, append = TRUE)
+
+
+
+all_fig9_data =
+     simulated_data_default %>% 
+      mutate(scenario  = "(a) Standard initial biomass") %>%
+     rbind(simulated_data_Fig9b %>% mutate(scenario  = "(b) Low initial biomass"))  %>%
+     rbind(simulated_data_Fig9c %>% mutate(scenario  = "(c) High initial biomass")) 
+
+
+fig9=PlotSimulatedPhageAndBacteriaMultipleScenarios(all_fig9_data,
+                              title_plot = "",
+                              colors = colors,
+                              ymin=YMIN,
+                              ymax = 2*YMAX,
+                              text_size = text_size,
+                              ncol = 2) +
+  theme(legend.position = c(0.9,0.2),
+        legend.justification = c(1,0))
+print(fig9)
+ggsave(filename = paste0(figures_path, 'Fig9',  ".jpg"), plot = fig9, width = 30, height = 20, units = "cm")
+
+```
+
+### The efficiency of the phage cocktail is partially robust to initial resource concentration
+For a range of resource concentrations the phage cocktail is effective, however when there a lot of resource and the growth dynamics is very quick, the fully resistant mutants appear sooner and they can be observed within the 24 hours growth.
+
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "33%"}
+scenario_name = "Fig10a_low_initial_glucose"
+simulated_data_Fig10a =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=lowG0, 
+                       Tmax = 24)
+write.xlsx(simulated_data_Fig10a, file=figures_data_path, sheetName = scenario_name, append = TRUE)
+
+
+
+scenario_name = "Fig10c_high_initial_glucose"
+simulated_data_Fig10c =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=highG0, 
+                       Tmax = 24)
+write.xlsx(simulated_data_Fig10c, file=figures_data_path, sheetName = scenario_name, append = TRUE)
+
+
+
+all_fig10_data =
+     simulated_data_default %>% 
+      mutate(scenario  = "(b) Standard initial glucose") %>%
+     rbind(simulated_data_Fig10a %>% mutate(scenario  = "(a) Low initial glucose"))  %>%
+     rbind(simulated_data_Fig10c %>% mutate(scenario  = "(c) High initial glucose")) 
+
+
+fig10=PlotSimulatedPhageAndBacteriaMultipleScenarios(all_fig10_data,
+                              title_plot = "",
+                              colors = colors,
+                              ymin=YMIN,
+                              ymax = 2*YMAX,
+                              text_size = text_size,
+                              ncol = 2) +
+  theme(legend.position = c(0.9,0.2),
+        legend.justification = c(1,0))
+print(fig10)
+ggsave(filename = paste0(figures_path, 'Fig10',  ".jpg"), plot = fig10, width = 30, height = 20, units = "cm")
+
+```
+
+### The efficiency of the phage cocktail is robust to the switch rate between capsuled and uncapsuled strains 
+WHile the standard treatment fails sooner when the rate of change between bacteria with and without capsule, it does not affect the phage cocktail treatment
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "33%"}
+scenario_name = "Fig11a_low_B1_B2_mutation"
+simulated_data_Fig11a =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=lowepsilonB2toB1, 
+                       epsilonB1toB2=lowepsilonB2toB1,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = 24)
+write.xlsx(simulated_data_Fig11a, file=figures_data_path, sheetName = scenario_name, append = TRUE)
+
+
+
+
+scenario_name = "Fig11b_high_B1_B2_mutation"
+simulated_data_Fig11b =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=highepsilonB2toB1, 
+                       epsilonB1toB2=highepsilonB2toB1,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = 24)
+write.xlsx(simulated_data_Fig11b, file=figures_data_path, sheetName = scenario_name, append = TRUE)
+
+
+all_fig11_data =
+     rbind(simulated_data_Fig11a %>% mutate(scenario  = "(a) Low rate of change between B_P and B_N"))  %>%
+     rbind(simulated_data_Fig11b %>% mutate(scenario  = "(b) high rate of change between B_P and B_N")) 
+
+
+fig11=PlotSimulatedPhageAndBacteriaMultipleScenarios(all_fig11_data,
+                              title_plot = "",
+                              colors = colors,
+                              ymin=YMIN,
+                              ymax = YMAX,
+                              text_size = text_size,
+                              ncol = 2) 
+print(fig11)
+ggsave(filename = paste0(figures_path, 'Fig11',  ".jpg"), plot = fig11, width = 30, height = 10, units = "cm")
+
+
+```
+
+
+### The cocktail therapy is going to fail in long term if bacteria are able to quickly mutate to the fully resistant strain   
+
+
+```{r,echo=FALSE, fig.show = "hold", out.width = "49%"}
+scenario_name = "Fig12_very_high_epsilon_NR"
+simulated_data =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=highepsilontoB3, 
+                       epsilonB3toB2=highepsilontoB3,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = 24)
+
+  if (save_data) {   write.xlsx(simulated_data, file=figures_data_path, sheetName = scenario_name, append = TRUE)   }
+fig =PlotSimulatedPhageAndBacteria(simulated_data,
+                              title_plot = "",
+                              colors = colors,
+                              text_size = text_size) 
+print(fig)
+ggsave(filename = paste0(figures_path, scenario_name,  ".jpg"), plot = fig, width = 25, height = 10, units = "cm")
+
+```
+
+# Discussion: TODO
+
+
+

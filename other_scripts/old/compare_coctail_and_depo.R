@@ -19,8 +19,8 @@ SetDefaultParameters = function(mg_count = 10^12) {
       # initial values
       # started with 10^6 CFU/mL i.e. 10^9 CFU/L i.e. ~10^(-3) g/L
 
-      B0  = 10^9/mg_count, #[g/L] = [mg/mL]
-      MOI = 10, # so  both phages and bacteria are now counted in units of (10^12 / L) 
+      B0  = 10^9/mg_count, #[g/L]
+      MOI = 10, # so  both phages and bacteria are now counted in units of (10^12) 
       G0 = 13.9,#55.6
       
       # Weitz: K= 4*10^(-6)g/mL = 4*10^(-3)g/L (4miligram per liter ~ 0.01 mmol/L)
@@ -245,10 +245,10 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
     select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2) %>%
     mutate(Treatment = "No phage")
   simulated_data = rbind(simulated_data, simulation) %>%
-    mutate(bacteria_capsule = bacteria_capsule*mg_count/1000,
-           bacteria_no_capsule = bacteria_no_capsule*mg_count/1000,
-           bacteria_resistant = bacteria_resistant*mg_count/1000) %>%
-    mutate(all_bacteria_CFU_per_mL = bacteria_capsule + bacteria_no_capsule + bacteria_resistant)
+    mutate(bacteria_capsule = bacteria_capsule*mg_count,
+           bacteria_no_capsule = bacteria_no_capsule*mg_count,
+           bacteria_resistant = bacteria_resistant*mg_count) %>%
+    mutate(all_bacteria_CFU_per_L = bacteria_capsule + bacteria_no_capsule + bacteria_resistant)
     
   
 
@@ -256,7 +256,16 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
   return(simulated_data)
 }
 
-GetVisualisationConstants = function(text_size=12) {
+PlotSimulatedPhageAndBacteria = function( simulated_data,
+                                          title_plot = "", 
+                                          colors = NULL,
+                                          ymin=-1*10^11,
+                                          ymax = 2.5*10^12,
+                                          tmax = 24,
+                                          minCFU = 6.3*10^9,
+                                          text_size = 6,
+                                          linetypes = NULL) {
+  
   my_theme = theme(
     panel.grid.major = element_line(colour = "black", size = 0.05),
     panel.grid.minor = element_line(colour = "black", size = 0.05),
@@ -267,102 +276,37 @@ GetVisualisationConstants = function(text_size=12) {
     panel.border = element_rect(linetype = "solid", fill = NA, color = "black")
   )
   
-
+  if (is.null(colors)) {
     colors = c("No phage" = "black",
-               #"External depolymerase" = "gray",
+               "External depolymerase" = "gray",
                "Phage with depolymerase" = "darkgreen",
                "Phage with no depolymerase" = "darkblue",
                "Phage with no depolymerase + external depolymerase" = "darkmagenta",
                "Phage cocktail" = "darkred")
-  
-
+  }
+  if (is.null(linetypes)) {
     linetypes = c("No phage" = "solid",
-                  #"External depolymerase" = "solid",
-                  "Phage with depolymerase" = "dotted",
-                  "Phage with no depolymerase" = "dashed",
-                  "Phage with no depolymerase + external depolymerase" = "solid",
-                  "Phage cocktail" = "solid")
-  
-
-    linesizes = c("No phage" = 1,
-                  #"External depolymerase" = 1,
-                  "Phage with depolymerase" = 2,
-                  "Phage with no depolymerase" = 2,
-                  "Phage with no depolymerase + external depolymerase" = 1,
-                  "Phage cocktail" = 1)
-  
-  return(list(my_theme = my_theme, 
-              colors = colors, 
-              linetypes = linetypes, 
-              linesizes = linesizes))
-}
-
-
-
-PlotSimulatedPhageAndBacteria = function( simulated_data,
-                                          title_plot = "", 
-                                          colors = NULL,
-                                          ymin=-1*10^8,
-                                          ymax = 2.5*10^9,
-                                          tmax = 24,
-                                          minCFU = 6.3*10^6,
-                                          text_size = 6,
-                                          linetypes = NULL,
-                                          linesizes = NULL) {
-  
-  VisualisationConstants = GetVisualisationConstants()
-  my_theme = VisualisationConstants$my_theme
-  if (is.null(colors)) {colors = VisualisationConstants$colors}
-  if (is.null(linetypes)) {linetypes = VisualisationConstants$linetypes}
-  if (is.null(linesizes)) {linesizes = VisualisationConstants$linesizes}
+               "External depolymerase" = "solid",
+               "Phage with depolymerase" = "dotted",
+               "Phage with no depolymerase" = "dashed",
+               "Phage with no depolymerase + external depolymerase" = "solid",
+               "Phage cocktail" = "longdash")
+  }
   descriptions_to_show = names(colors)
-  
-  data_polished = simulated_data %>% 
-    filter(Treatment %in% descriptions_to_show) %>%
-    mutate(all_bacteria_CFU_per_mL = ifelse(all_bacteria_CFU_per_mL > minCFU, all_bacteria_CFU_per_mL, minCFU))
-  
-  g1=ggplot(data_polished,
-            aes(x = time, 
-                y = all_bacteria_CFU_per_mL, 
-                col = Treatment, 
-                linetype = Treatment, 
-                size = Treatment)) +
-    geom_line() +
-    ggtitle(title_plot) +
-    xlab("time [h]") +
-    ylab("bacteria [CFU/mL]") + 
+  g1=ggplot(simulated_data %>% 
+              filter(Treatment %in% descriptions_to_show) %>%
+              mutate(all_bacteria_CFU_per_L = ifelse(all_bacteria_CFU_per_L > minCFU, all_bacteria_CFU_per_L, minCFU)),
+            aes(x = time, y = all_bacteria_CFU_per_L, col = Treatment, linetype = Treatment)) +
     scale_color_manual(values=colors) +
     scale_linetype_manual(values = linetypes) +
-    scale_size_manual(values = linesizes) +
+    geom_line() +
+    #theme_bw() +
+    ggtitle(title_plot) +
+    xlab("time [h]") +
+    ylab("bacteria [CFU/L]") + 
     scale_y_log10(limits = c(ymin, ymax)) +
     my_theme +
-    xlim(c(0,tmax)) 
-  
+    xlim(c(0,tmax))
   return(g1)
   }
   
-
-
-
-PlotSimulatedPhageAndBacteriaMultipleScenarios = function( simulated_data,
-                                          title_plot = "", 
-                                          colors = NULL,
-                                          ymin=-1*10^8,
-                                          ymax = 2.5*10^9,
-                                          tmax = 24,
-                                          minCFU = 6.3*10^6,
-                                          text_size = 6,
-                                          linetypes = NULL,
-                                          linesizes = NULL,
-                                          ncol = 1,
-                                          legend.position="right") {
-   n = n_distinct(simulated_data$scenario)
-   nrow = ceiling(n/ncol)
-   g1 = PlotSimulatedPhageAndBacteria(simulated_data,
-                                       title_plot,colors,ymin, ymax, tmax,minCFU,text_size,linetypes,linesizes)
-   g2 = g1 + 
-     facet_wrap('scenario', nrow = nrow, ncol = ncol) +
-     theme(legend.position=legend.position)
-   return(g2)
-  }
-

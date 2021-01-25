@@ -1549,7 +1549,184 @@ ggsave(filename = paste0(figures_path, scenario_name,  ".jpg"), plot = fig, widt
 
 ```
 
-# Discussion: TODO
+# Sensitivity on depo params
+```{r,echo=FALSE, fig.show = "hold", out.width = "49%"}
+scenario_name = "FigS1_depo_sensitivity_low_V"
+simulated_data_lowVdepo =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo/2, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = 24) %>%
+  mutate(scenario = "g) low V")
 
+  if (save_data) {   write.xlsx(simulated_data_lowVdepo, file=figures_data_path, sheetName = scenario_name, append = TRUE)   }
+
+scenario_name = "FigS1_depo_sensitivity_high_V"
+
+simulated_data_highVdepo =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo*2, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = 24) %>%
+  mutate(scenario = "d) high V")
+
+  if (save_data) {   write.xlsx(simulated_data_highVdepo, file=figures_data_path, sheetName = scenario_name, append = TRUE)   }
+
+scenario_name = "FigS1_depo_sensitivity_high_K"
+simulated_data_highKdepo =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo*2, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = 24) %>%
+  mutate(scenario = "c) high K")
+
+  if (save_data) {   write.xlsx(simulated_data_highKdepo, file=figures_data_path, sheetName = scenario_name, append = TRUE)   }
+
+scenario_name = "FigS1_depo_sensitivity_low_K"
+simulated_data_lowKdepo =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo/2, 
+                       depo_decay_rate=depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = 24) %>%
+  mutate(scenario = "f) low K")
+
+  if (save_data) {   write.xlsx(simulated_data_lowKdepo, file=figures_data_path, sheetName = scenario_name, append = TRUE)   }
+
+scenario_name = "FigS1_depo_sensitivity_high_decay"
+simulated_data_high_decay =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=2*depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = 24) %>%
+  mutate(scenario = "b) High decay rate")
+  if (save_data) {   write.xlsx(simulated_data_high_decay, file=figures_data_path, sheetName = scenario_name, append = TRUE)   }
+
+scenario_name = "FigS1_depo_sensitivity_low_decay"
+simulated_data_low_decay =Simulate_Phage_Coctail(Vh=Vh, 
+                       Kh=Kh,
+                       a=a, 
+                       beta_non_depo=beta_non_depo, 
+                       beta_depo=beta_depo, 
+                       phi_non_depo=phi_non_depo, 
+                       phi_depo=phi_depo, 
+                       decay=decay, 
+                       V_depo=V_depo, 
+                       K_depo=K_depo, 
+                       depo_decay_rate=0.5*depo_decay_rate,
+                       epsilonB2toB1=epsilonB2toB1, 
+                       epsilonB1toB2=epsilonB1toB2,
+                       epsilonB2toB3=epsilonB2toB3, 
+                       epsilonB3toB2=epsilonB3toB2,
+                       epsilonB1toB3=epsilonB1toB3, 
+                       epsilonB3toB1=epsilonB3toB1,  
+                       B0=B0, 
+                       e0=e0, 
+                       MOI =MOI, 
+                       G0=G0, 
+                       Tmax = 24) %>%
+  mutate(scenario = "e) low decay rate")
+  if (save_data) {   write.xlsx(simulated_data_low_decay, file=figures_data_path, sheetName = scenario_name, append = TRUE)   }
+
+
+simulated_data_default$scenario = "a) default"
+simulated_data = rbind(simulated_data_lowVdepo,simulated_data_default, simulated_data_highVdepo,
+                       simulated_data_lowKdepo, simulated_data_highKdepo,
+                       simulated_data_high_decay, simulated_data_low_decay)
+
+fig =PlotSimulatedPhageAndBacteriaMultipleScenarios(simulated_data,
+                              title_plot = "",
+                              colors = colors,
+                              text_size = text_size,ncol = 2) +
+  theme(legend.position = c(0.99,0.01),
+        legend.justification = c(1,0))
+print(fig)
+ggsave(filename = paste0(figures_path, "FigS1",  ".jpg"), plot = fig, width = 20, height = 40, units = "cm")
+
+```
 
 

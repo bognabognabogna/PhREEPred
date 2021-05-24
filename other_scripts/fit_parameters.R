@@ -26,12 +26,23 @@ bacteria_growth_model = function(Time, State, Pars) {
   })
 }
 
+
+
+
 simulate_growth_single_strain = function(a,Vh,Kh,H0,N0, time) {
   pars <- c(a = a, Vh = Vh, Kh = Kh)
   inits = c(G=H0, N=N0)
   simulation <- as.data.frame(ode(inits, time, bacteria_growth_model, pars))
   return(simulation$N)
 }
+
+simulate_growth_two_strains = function(a,Vh,Kh,H0,N0, epsilonB1toB2, time) {
+  pars <- c(a = a, Vh = Vh, Kh = Kh)
+  inits = c(G=H0, N=N0)
+  simulation <- as.data.frame(ode(inits, time, bacteria_growth_model, pars))
+  return(simulation$N)
+}
+
 
 sumLeastSquaresFitGrowthToDeoptim = function(param) {
   Vh = param[1]
@@ -41,6 +52,8 @@ sumLeastSquaresFitGrowthToDeoptim = function(param) {
   difference = data$biomass - simulatedN
   return(sum(difference^2))
 }
+
+
 
 ##################### load data and find best params ###################
 # we will work on the scale of mg of bacteria 
@@ -58,10 +71,10 @@ max_time = 24 # By max_time we had around 40% of bacterial biomass! so there mus
 
 
 
-data486depo=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+data486depo=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Projects/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
                                sheet = "KP486 do papieru",
                                range = "AL121:AU170")
-data77depo=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
+data77depo=readxl::read_excel(path = "/Users/bognasmug/MGG Dropbox/Bogna Smug/Projects/Z_Drulis_Kawa/data/2020_06/Dane dla Bogny2.xlsx", 
                               sheet = "KP77 do papieru ",
                               range = "BG126:BP175")
 
@@ -144,3 +157,71 @@ print(Kh)
 
 # V [mmol / mg biomass * h]
 # a [mg biomass / mmol glucose]
+
+
+two_bacteria_model1 = function(Time, State, Pars) {
+  with(as.list(c(State, Pars)), {
+    Jg =Vh*G/(Kh+G); 
+    # assume B1 is constant 10^6/mg_count
+    Gdot    = -Jg*(B1const + B2);
+    B2dot   = a*Jg*B2 + epsilonB1toB2*B1const; #those can be infected by p2 only
+    batch  = list(c(Gdot,B2dot))
+  })
+}
+
+
+two_bacteria_model2 = function(Time, State, Pars) {
+  with(as.list(c(State, Pars)), {
+    Jg =Vh*G/(Kh+G); 
+    # assume B1 is constant 10^6/mg_count
+    Gdot    = -Jg*(B1 + B2);
+    B1dot = a*Jg*B1 - epsilonB1toB2*B1
+    B2dot = a*Jg*B2 + epsilonB1toB2*B1; #those can be infected by p2 only
+    batch  = list(c(Gdot,B1dot, B2dot))
+  })
+}
+
+two_bacteria_model3 = function(Time, State, Pars) {
+  with(as.list(c(State, Pars)), {
+    Jg =Vh*G/(Kh+G); 
+    # assume B1 is constant 10^6/mg_count
+    Gdot    = -Jg*(B1 + B2);
+    B1dot = a*Jg*B1 - epsilonB1toB2*B1 - phi_depo*B1*P1;
+    P1dot = beta_depo*phi_depo*B1*P1;
+    B2dot = a*Jg*B2 + epsilonB1toB2*B1; #those can be infected by p2 only
+    batch  = list(c(Gdot,B1dot,P1dot, B2dot))
+  })
+}
+
+# model1 and model2: not senstivite to changes in epsilon, but too few B2 in the end
+simulate_growth_two_strains = function(epsilonB1toB2, time) {
+  a=0.17
+  Vh= 323.92
+  Kh=500
+  H0=13.9
+  N0=10^6/(10^9)
+  B1const = N0
+  time = seq(1,24,0.5)
+  MOI = 10
+  phi_depo =20
+  beta_depo = 50
+  epsilonB1toB2 = 10^(-3)
+  
+  pars <- c(a = a, Vh = Vh, Kh = Kh, epsilonB1toB2 = epsilonB1toB2, B1const =B1const, phi_depo = phi_depo, beta_depo = beta_depo)
+  inits = c(G=H0,B1=N0, P1= N0*MOI, B2=0)
+  simulation <- as.data.frame(ode(inits, time, two_bacteria_model3, pars))
+  return(simulation$B2)
+}
+
+ggplot(simulation %>% mutate(B2 = B2*mg_count)) +
+  geom_line(aes(x=time, y = B2))
+
+sumLeastSquaresFitGrowthToDeopti_two_bacteria = function(param) {
+
+  epsilonB1toB2 = param[1]
+  simulatedN = two_bacteria_model1(a,Vh,Kh,H0,N0,epsilonB1toB2, data$time)
+  difference = data$biomass - simulatedN
+  return(sum(difference^2))
+}
+
+# fit to the curve of uncapsulated baceria

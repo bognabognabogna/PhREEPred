@@ -23,7 +23,7 @@ max_params = SetMaxParameters(mg_count)
 ui <- shinyUI(fluidPage(
     withMathJax(),
     # Application title
-    titlePanel("PhARTNER: PhAge ResisTaNce EmeRgence"),
+    titlePanel("PhREEPred: Phage Resistance EmergencE Prediction"),
     
     # Sidebar with a slider input for number of bins
     sidebarLayout(
@@ -85,6 +85,16 @@ ui <- shinyUI(fluidPage(
                          min = 0,
                          max = 10^4,
                          default_params$phi_non_depo),
+            numericInput("latent_period_depo",
+                         label = "\\( T^L_P \\): Latent period of \\(P_P\\)  [min]",
+                         min = 0,
+                         max = 10^4,
+                         60*default_params$latent_period_depo),
+            numericInput("latent_period_non_depo",
+                         label = "\\( T^L_N \\):  Latent period of  \\(P_N\\) [min]",
+                         min = 0,
+                         max = 10^4,
+                         60*default_params$latent_period_non_depo),
             br(),
             br(),
             h4("Bacterial growth:"),
@@ -229,16 +239,20 @@ server <- shinyServer(function(input, output) {
                                              e0=input$e0, 
                                              MOI =input$MOI, 
                                              G0=input$G0, 
-                                             Tmax = input$Tmax) %>% 
+                                             Tmax = input$Tmax,
+                                             latent_period_depo = input$latent_period_depo/60,
+                                             latent_period_non_depo = input$latent_period_non_depo/60,
+                                             model = "delayed") %>% 
         mutate(Treatment = plyr::revalue(Treatment,
-                                         c("no-depo-phage (KP15/KP27)" ="no-depo-phage", 
-                                           "no-depo-phage+depo (KP15/KP27 + KP34p57)" ="no-depo-phage+depo",
-                                           "phage cocktail (KP15/KP27 + KP34)" = "phage cocktail",
-                                           "depo-phage (KP34)" = "depo-phage" ))) %>%
+                                         c( "depo-equipped phage (KP34)" =  "depo-equipped phage", 
+                                            "capsule-independent phage (KP15/KP27)"  = "capsule-independent phage" ,
+                                            "capsule-independent phage (KP15/KP27) + depo" = "capsule-independent phage + depo",
+                                            "phage cocktail (KP15/KP27 + KP34)" = "phage cocktail" ))) %>%
             filter(Treatment != "External depo")
-            
-        
+
     })
+    
+
     
     output$timeplot <- renderPlot({
         if(isValid_input()){ 
@@ -295,14 +309,14 @@ server <- shinyServer(function(input, output) {
             linesizes = VisualisationConstants$linesizes
             fig =PlotSimulatedDataByBacteriaType(simulated_data(),
                                                  title_plot = "", 
-                                                 colors = colors,
                                                  ymin = NULL,
                                                  ymax = NULL,
                                                  tmax = input$Tmax,
                                                  minCFU = 6.3*10^6,
                                                  text_size = 12,
                                                  linetypes = linetypes,
-                                                 linesizes = linesizes) 
+                                                 linesizes = linesizes,
+                                                 colors = colors) 
             
             return(fig)
         }else{ #

@@ -58,11 +58,9 @@ SetDefaultParameters = function(mg_count = 10^12) {
       # adsororption rate to the specific phage
       # Cairns 2009: adsorption ~ 8*10^(-8) ml/(CFU*h). After converting CFU to mg we get: 10^9 * 8*10^(-8) ~ 80
       # Weitz 2005: adsorrption ~ 6.24*10^(-8) ml/[hr*CFU].  i.e. 6.24*10^(-11) L/[hr*CFU] i.e. ~ 62.4 L/[hr * 10^12 phage cells]
-      #phi_non_depo = 0.25; # phage 1 (with depo) to bacteria with polisaccharide
-      #phi_depo = 0.25; # phage 2 (without depolimerase) to bacteria without polissacharide
       # Da Paeppe 10^(-11) - 10^(-9) [1/min] = 10^(-9)-10^(-7) [1/min] i.e 1-100
-      phi_non_depo = 20,
-      phi_depo = 20,
+      phi_non_depo = 2*20,
+      phi_depo = 2*20,
       
       # phage decay rate
       #Cairns 2009 decay = 0.0106 [1/h], This constant doesn't depend on the unit of phages. 
@@ -85,7 +83,10 @@ SetDefaultParameters = function(mg_count = 10^12) {
       epsilonB2toB3 = epsilon2,
       epsilonB3toB2 = epsilon2,
       epsilonB1toB3 = epsilon3,
-      epsilonB3toB1 = epsilon3
+      epsilonB3toB1 = epsilon3,
+      latent_period_depo = 15/60,
+      latent_period_non_depo = 25/60,
+      propB2init = 0
     )
   
   return(default_params)
@@ -218,20 +219,64 @@ two_phages_and_bacteria = function(Time, State, Pars) {
     B3dot   = a*Jg*B3 + epsilonB2toB3*B2 - epsilonB3toB2*B3 + epsilonB1toB3*B1 - epsilonB3toB1*B3;  #completely resistant strain
     P1dot  = beta_depo*phi_depo*B1*P1*burst_factor - decay*P1;
     P2dot =  beta_non_depo*phi_non_depo*B2*P2*burst_factor - decay*P2;
-    batch  = list(c(Edot, Gdot,P1dot,P2dot,B1dot,B2dot,B3dot))
+    Gdot_used_by_decapsulated_only = -Jg*(B2+B3);
+    Gdot_used_by_capsulated_only = -Jg*B1;
+    killed_bacteria_dot =  phi_depo*B1*P1 + phi_non_depo*B2*P2;
+    batch  = list(c(Edot, Gdot,P1dot,P2dot,B1dot,B2dot,B3dot,Gdot_used_by_decapsulated_only, Gdot_used_by_capsulated_only, killed_bacteria_dot))
+  })
+}
+
+# # our model of growth (using differential euqutions)
+two_phages_and_bacteria_delayed = function(Time, State, Pars) {
+  with(as.list(c(State, Pars)), {
+    
+    if (Time < latent_period_depo) {
+      B1L =(1-propB2init)*B0
+      P1L =freq*P0
+    }
+    else {
+      B1L = lagvalue(Time - latent_period_depo,5)
+      P1L = lagvalue(Time - latent_period_depo,3)
+    }
+    
+    if (Time < latent_period_non_depo) {
+      P2L =(1-freq)*P0
+      B2L =propB2init*B0
+    }
+    else {
+      B2L = lagvalue(Time - latent_period_non_depo,6)
+      P2L = lagvalue(Time - latent_period_non_depo,4)
+    }
+    
+    Jg =Vh*G/(Kh+G); 
+    if (bf==0) {
+      burst_factor = 1
+    } else {
+      burst_factor = G/(1+G)#10*Jg/Vh #bacteria will not burst and release new phages when they don't grow
+    }
+    # depo activity
+    Jdepo = E*V_depo*B1/(K_depo+B1); # bacteria with capsule that will become capsuleless because of the dpeolymerase
+    #equations during the grow
+    Edot    = -depo_decay_rate*E # if we allow some free depo then:+ P1*c;
+    Gdot    = -Jg*(B1 + B2 + B3);
+    P1dot  = -phi_depo*B1*P1 + beta_depo*phi_depo*B1L*P1L*burst_factor - decay*P1;
+    P2dot =  -phi_non_depo*B2*P2 + beta_non_depo*phi_non_depo*B2L*P2L*burst_factor - decay*P2;
+    B1dot   = a*Jg*B1 - phi_depo*B1*P1 - epsilonB1toB2*B1 + epsilonB2toB1*B2 - epsilonB1toB3*B1 + epsilonB3toB1*B3 - Jdepo; #those can be infected by p1 only
+    B2dot   = a*Jg*B2 - phi_non_depo*B2*P2 - epsilonB2toB1*B2 + epsilonB1toB2*B1 -epsilonB2toB3*B2 + epsilonB3toB2*B3 + Jdepo; #those can be infected by p2 only
+    B3dot   = a*Jg*B3 + epsilonB2toB3*B2 - epsilonB3toB2*B3 + epsilonB1toB3*B1 - epsilonB3toB1*B3;  #completely resistant strain
+    Gdot_used_by_decapsulated_only = -Jg*(B2+B3);
+    Gdot_used_by_capsulated_only = -Jg*(B1);
+    killed_bacteria_dot =  phi_depo*B1*P1 + phi_non_depo*B2*P2;
+    batch  = list(c(Edot, Gdot,P1dot,P2dot,B1dot,B2dot,B3dot, Gdot_used_by_decapsulated_only, Gdot_used_by_capsulated_only, killed_bacteria_dot))
   })
 }
 
 
-
-
 Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_depo, phi_depo, decay, V_depo, K_depo, depo_decay_rate, epsilonB2toB1, epsilonB1toB2,epsilonB2toB3, epsilonB3toB2,epsilonB1toB3, epsilonB3toB1, B0, 
-                                  e0=1, MOI =1, G0=29, Tmax = 24,  bf = 1, propPP =0.5, propB2init = 0, ode_method = "ode45", mg_count = (10^12), tspan = 0.2) {
-  
+                                  e0=1, MOI =1, G0=29, Tmax = 24,  bf = 1, propPP =0.5, propB2init = 0, ode_method = "ode45", mg_count = (10^12), tspan = 0.2, 
+                                  model = "delayed", latent_period_depo = 15/60, latent_period_non_depo = 25/60) {
   
 
-
-  
   time = seq(0,Tmax,tspan)
   e_0 = 0
   pars =  c(a = a, 
@@ -251,7 +296,10 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
             epsilonB2toB3 = epsilonB2toB3,
             epsilonB3toB2 = epsilonB3toB2,
             epsilonB1toB3 = epsilonB1toB3,
-            epsilonB3toB1 = epsilonB3toB1)
+            epsilonB3toB1 = epsilonB3toB1,
+            latent_period_depo = latent_period_depo,
+            latent_period_non_depo = latent_period_non_depo,
+            propB2init = propB2init)
 
 
   P0=B0*MOI;
@@ -260,12 +308,15 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
   simulated_data = data.frame(time = numeric(0), 
                               bacteria_capsule = numeric(0), 
                               bacteria_no_capcule = numeric(0),
-                              Treatment = character(0), stringsAsFactors = FALSE)
+                              Treatment = character(0), 
+                              Depolymerase = numeric(0), 
+                              Glucose = numeric(0),
+                              stringsAsFactors = FALSE)
   
   # No external depolimerase: different combinations of phages
-  Treatments = c(           "no-depo-phage (KP15/KP27)",
+  Treatments = c(           "capsule-independent phage (KP15/KP27)",
                              "phage cocktail (KP15/KP27 + KP34)" ,
-                             "depo-phage (KP34)")
+                             "depo-equipped phage (KP34)")
   i=0
   for (freq in c(0, propPP, 1)) {
   i=i+1
@@ -275,11 +326,25 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
             P2=(1-freq)*P0,
             B1= (1-propB2init)*B0,
             B2 = propB2init*B0,
-            B3 = 0)
+            B3 = 0,
+            G_for_decapsulated = G0,
+            G_for_capsulated = G0,
+            killed_bacteria = 0)
   
 
-  simulation <- as.data.frame(ode(inits, time, two_phages_and_bacteria, pars, method = ode_method)) %>% 
-    select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2) %>%
+  if (model == "standard") {
+    yout = ode(inits, time, two_phages_and_bacteria, pars, method = ode_method)   
+  } else if (model == "delayed") {
+    parsdede = pars
+    parsdede$freq = freq
+    parsdede$propB2init = propB2init
+    parsdede$P0 = P0
+    parsdede$B0 = B0
+    yout = dede(inits, time, two_phages_and_bacteria_delayed, parsdede)
+    print("evaluating delayed model")
+  }
+  simulation <- as.data.frame(yout) %>% 
+    select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2, Depolymerase = E, Glucose = G, G_for_decapsulated = G_for_decapsulated, G_for_capsulated = G_for_capsulated, killed_bacteria = killed_bacteria) %>%
     mutate(Treatment = Treatments[i])
   
   simulated_data = rbind(simulated_data, simulation)
@@ -290,8 +355,8 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
   inits['P2']=P0
   inits['E'] =e0
   simulation <- as.data.frame(ode(inits, time, two_phages_and_bacteria, pars, method = ode_method)) %>% 
-    select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2) %>%
-    mutate(Treatment = paste0("no-depo-phage+depo (KP15/KP27 + KP34p57)"))
+    select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2, Depolymerase = E, Glucose = G, G_for_decapsulated = G_for_decapsulated, G_for_capsulated = G_for_capsulated, killed_bacteria = killed_bacteria) %>%
+    mutate(Treatment = paste0("capsule-independent phage (KP15/KP27) + depo"))
   simulated_data = rbind(simulated_data, simulation) 
 
   
@@ -300,7 +365,7 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
   inits['P2'] =  0
   inits['E'] =e0
   simulation <- as.data.frame(ode(inits, time, two_phages_and_bacteria, pars, method = ode_method)) %>% 
-    select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2) %>%
+    select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2, Depolymerase = E, Glucose = G, G_for_decapsulated = G_for_decapsulated, G_for_capsulated = G_for_capsulated, killed_bacteria = killed_bacteria) %>%
     mutate(Treatment = "External depo")
   simulated_data = rbind(simulated_data, simulation) 
   
@@ -310,12 +375,13 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
   inits['P2'] =  0
   inits['E'] = 0
   simulation <- as.data.frame(ode(inits, time, two_phages_and_bacteria, pars, method = ode_method)) %>% 
-    select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2) %>%
+    select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2, Depolymerase = E, Glucose = G, G_for_decapsulated = G_for_decapsulated, G_for_capsulated = G_for_capsulated, killed_bacteria = killed_bacteria) %>%
     mutate(Treatment = "no phage")
   simulated_data = rbind(simulated_data, simulation) %>%
     mutate(bacteria_capsule = bacteria_capsule*mg_count/1000,
            bacteria_no_capsule = bacteria_no_capsule*mg_count/1000,
-           bacteria_resistant = bacteria_resistant*mg_count/1000) %>%
+           bacteria_resistant = bacteria_resistant*mg_count/1000,
+           killed_bacteria = killed_bacteria*mg_count/1000) %>%
     mutate(all_bacteria_CFU_per_mL = bacteria_capsule + bacteria_no_capsule + bacteria_resistant)
     
   
@@ -327,9 +393,9 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
 
 GetVisualisationConstants2 = function(text_size=12, 
                                       no_phage_name = "no phage",
-                                      depo_phage_name = "depo-phage (KP34)" ,
-                                      no_depo_phage_name = "no-depo-phage (KP15/KP27)",
-                                      no_depo_phage_plus_depo_name = "no-depo-phage+depo (KP15/KP27 + KP34p57)" ,
+                                      depo_phage_name = "depo-equipped phage (KP34)" ,
+                                      no_depo_phage_name = "capsule-independent phage (KP15/KP27)",
+                                      no_depo_phage_plus_depo_name = "capsule-independent phage (KP15/KP27) + depo" ,
                                       phage_cocktail_name = "phage cocktail (KP15/KP27 + KP34)") {
   my_theme = theme(
     panel.grid.major = element_line(colour = "black", size = 0.05),
@@ -467,7 +533,7 @@ PlotResultsByBacteriumType =function( simulated_data,
                                      tmax = 24,
                                      minCFU = 6.3*10^6,
                                      text_size = 12) {
-  VisualisationConstants = GetVisualisationConstants(text_size)
+  VisualisationConstants = GetVisualisationConstantsApp(text_size)
   my_theme = VisualisationConstants$my_theme
   data_polished = simulated_data %>% 
   mutate(all_bacteria_CFU_per_mL = ifelse(all_bacteria_CFU_per_mL > minCFU, all_bacteria_CFU_per_mL, minCFU))
@@ -513,25 +579,25 @@ GetVisualisationConstantsApp = function(text_size=12) {
   
   colors = c("no phage" = "black",
              #"External depo" = "gray",
-             "depo-phage" = "darkgreen",
-             "no-depo-phage" = "darkblue",
-             "no-depo-phage+depo" = "darkmagenta",
+             "depo-equipped phage" = "darkgreen",
+             "capsule-independent phage" = "darkblue",
+             "capsule-independent phage + depo" = "darkmagenta",
              "phage cocktail" = "darkred")
   
   
   linetypes = c("no phage" = "solid",
                 #"External depo" = "solid",
-                "depo-phage" = "solid",
-                "no-depo-phage" = "dashed",
-                "no-depo-phage+depo" = "solid",
+                "depo-equipped phage" = "solid",
+                "capsule-independent phage" = "dashed",
+                "capsule-independent phage + depo" = "solid",
                 "phage cocktail" = "solid")
   
   
   linesizes = c("no phage" = 0.5,
                 #"External depo" = 1,
-                "depo-phage" = 0.5,
-                "no-depo-phage" = 0.5,
-                "no-depo-phage+depo" = 0.5,
+                "depo-equipped phage" = 0.5,
+                "capsule-independent phage" = 0.5,
+                "capsule-independent phage + depo" = 0.5,
                 "phage cocktail" = 0.5)
   
   return(list(my_theme = my_theme, 
@@ -555,26 +621,26 @@ GetVisualisationConstants = function(text_size=12) {
 
     colors = c("no phage" = "black",
                #"External depo" = "gray",
-               "depo-phage (KP34)" = "darkgreen",
-               "no-depo-phage (KP15/KP27)" = "darkblue",
-               "no-depo-phage+depo (KP15/KP27 + KP34p57)" = "darkmagenta",
+               "depo-equipped phage (KP34)" = "darkgreen",
+               "capsule-independent phage (KP15/KP27)" = "darkblue",
+               "capsule-independent phage (KP15/KP27) + depo" = "darkmagenta",
                "phage cocktail (KP15/KP27 + KP34)" = "darkred")
   
 
     linetypes = c("no phage" = "solid",
                   #"External depo" = "solid",
-                  "depo-phage (KP34)" = "solid",
-                  "no-depo-phage (KP15/KP27)" = "dashed",
-                  "no-depo-phage+depo (KP15/KP27 + KP34p57)" = "solid",
+                  "depo-equipped phage (KP34)" = "dotted",
+                  "capsule-independent phage (KP15/KP27)" = "dashed",
+                  "capsule-independent phage (KP15/KP27) + depo" = "dashed",
                   "phage cocktail (KP15/KP27 + KP34)" = "solid")
   
 
-    linesizes = c("no phage" = 0.5,
+    linesizes = c("no phage" = 1.2,
                   #"External depo" = 1,
-                  "depo-phage (KP34)" = 0.5,
-                  "no-depo-phage (KP15/KP27)" = 0.5,
-                  "no-depo-phage+depo (KP15/KP27 + KP34p57)" = 0.5,
-                  "phage cocktail (KP15/KP27 + KP34)" = 0.5)
+                  "depo-equipped phage (KP34)" = 1.2,
+                  "capsule-independent phage (KP15/KP27)" = 1.2,
+                  "capsule-independent phage (KP15/KP27) + depo" = 1.2,
+                  "phage cocktail (KP15/KP27 + KP34)" = 1.2)
   
   return(list(my_theme = my_theme, 
               colors = colors, 
@@ -582,46 +648,6 @@ GetVisualisationConstants = function(text_size=12) {
               linesizes = linesizes))
 }
 
-
-GetVisualisationConstantsFig3 = function(text_size=12) {
-  my_theme = theme(
-    panel.grid.major = element_line(colour = "black", size = 0.05),
-    panel.grid.minor = element_line(colour = "black", size = 0.05),
-    panel.background = element_rect(fill = "white",
-                                    colour = "gray",
-                                    size = 0.5, linetype = "solid"),
-    text = element_text(size=text_size),
-    panel.border = element_rect(linetype = "solid", fill = NA, color = "black")
-  )
-  
-  colors = c("no phage" = "black",
-             #"External depo" = "gray",
-             "depo-phage (KP34)" = "darkgreen",
-             "no-depo-phage (KP15)" = "darkblue",
-             "no-depo-phage+depo (KP15 + KP34p57)" = "darkmagenta",
-             "phage cocktail (KP15 + KP34)" = "darkred")
-  
-  
-  linetypes = c("no phage" = "solid",
-                #"External depo" = "solid",
-                "depo-phage (KP34)" = "solid",
-                "no-depo-phage (KP15)" = "dashed",
-                "no-depo-phage+depo (KP15 + KP34p57)" = "solid",
-                "phage cocktail (KP15 + KP34)" = "solid")
-  
-  
-  linesizes = c("no phage" = 0.5,
-                #"External depo" = 1,
-                "depo-phage (KP34)" = 0.5,
-                "no-depo-phage (KP15)" = 0.5,
-                "no-depo-phage+depo (KP15 + KP34p57)" = 0.5,
-                "phage cocktail (KP15 + KP34)" = 0.5)
-  
-  return(list(my_theme = my_theme, 
-              colors = colors, 
-              linetypes = linetypes, 
-              linesizes = linesizes))
-}
 
 
 
@@ -653,7 +679,7 @@ PlotSimulatedPhageAndBacteria = function( simulated_data,
                 col = Treatment, 
                 linetype = Treatment, 
                 size = Treatment)) +
-    geom_line() +
+    geom_line(alpha = 0.5) +
     ggtitle(title_plot) +
     xlab("time [h]") +
     ylab("bacteria [CFU/mL]") + 

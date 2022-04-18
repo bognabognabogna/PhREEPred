@@ -274,7 +274,8 @@ two_phages_and_bacteria_delayed = function(Time, State, Pars) {
 
 Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_depo, phi_depo, decay, V_depo, K_depo, depo_decay_rate, epsilonB2toB1, epsilonB1toB2,epsilonB2toB3, epsilonB3toB2,epsilonB1toB3, epsilonB3toB1, B0, 
                                   e0=1, MOI =1, G0=29, Tmax = 24,  bf = 1, propPP =0.5, propB2init = 0, ode_method = "ode45", mg_count = (10^12), tspan = 0.2, 
-                                  model = "delayed", latent_period_depo = 15/60, latent_period_non_depo = 25/60) {
+                                  model = "delayed", latent_period_depo = 15/60, latent_period_non_depo = 25/60,
+                                  Treatments.included = c(1,1,1,1,1,1)) {
   
 
   time = seq(0,Tmax,tspan)
@@ -317,9 +318,13 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
   Treatments = c(           "capsule-independent phage (KP15/KP27)",
                              "phage cocktail (KP15/KP27 + KP34)" ,
                              "depo-equipped phage (KP34)")
-  i=0
-  for (freq in c(0, propPP, 1)) {
-  i=i+1
+  Treatments.data = data.frame(treatment = Treatments) 
+  Treatments.data$freq = c(0, propPP, 1)
+
+  for (i in 1:nrow(Treatments.data)) {
+  #for (freq in c(0, propPP, 1)) {
+  if (Treatments.included[i] == 1){
+  freq = Treatments.data$freq[i]
   inits = c(E= 0,
             G= G0, 
             P1=freq*P0,
@@ -349,8 +354,10 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
   
   simulated_data = rbind(simulated_data, simulation)
   }
+  }
   
   # only pahges without depo and some additoonal depo
+  if (Treatments.included[4] == 1){
   inits['P1']=0 
   inits['P2']=P0
   inits['E'] =e0
@@ -358,9 +365,10 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
     select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2, Depolymerase = E, Glucose = G, G_for_decapsulated = G_for_decapsulated, G_for_capsulated = G_for_capsulated, killed_bacteria = killed_bacteria) %>%
     mutate(Treatment = paste0("capsule-independent phage (KP15/KP27) + depo"))
   simulated_data = rbind(simulated_data, simulation) 
-
+}
   
   # only bacteria and depo
+  if (Treatments.included[5] == 1){
   inits['P1'] =  0 
   inits['P2'] =  0
   inits['E'] =e0
@@ -368,16 +376,20 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
     select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2, Depolymerase = E, Glucose = G, G_for_decapsulated = G_for_decapsulated, G_for_capsulated = G_for_capsulated, killed_bacteria = killed_bacteria) %>%
     mutate(Treatment = "External depo")
   simulated_data = rbind(simulated_data, simulation) 
-  
+  }
   
   # only bacteria 
+  if (Treatments.included[6] == 1){
   inits['P1'] =  0 
   inits['P2'] =  0
   inits['E'] = 0
   simulation <- as.data.frame(ode(inits, time, two_phages_and_bacteria, pars, method = ode_method)) %>% 
     select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2, Depolymerase = E, Glucose = G, G_for_decapsulated = G_for_decapsulated, G_for_capsulated = G_for_capsulated, killed_bacteria = killed_bacteria) %>%
     mutate(Treatment = "no phage")
-  simulated_data = rbind(simulated_data, simulation) %>%
+  simulated_data = rbind(simulated_data, simulation) 
+  }
+  
+  simulated_data = simulated_data %>%
     mutate(bacteria_capsule = bacteria_capsule*mg_count/1000,
            bacteria_no_capsule = bacteria_no_capsule*mg_count/1000,
            bacteria_resistant = bacteria_resistant*mg_count/1000,
@@ -728,3 +740,329 @@ PlotSimulatedPhageAndBacteriaMultipleScenarios = function( simulated_data,
    return(g2)
   }
 
+# for sensitivity parameter plots
+Max.Bacreria.In.Time.Window = function(data, max.time = 24) {
+  data.till.max.time = data %>% filter(time <= max.time)
+  max.biomass.till.max.time = max(data.till.max.time$all_bacteria_CFU_per_mL)
+  return(max.biomass.till.max.time)
+}
+
+First.Time.When.Bacteria.Increase = function(data, increase.by = 10) {
+  initial.bacteria =  data %>% filter(time == 0) %>% pull(all_bacteria_CFU_per_mL)
+  bactera.increased = data %>% filter(all_bacteria_CFU_per_mL >= increase.by*initial.bacteria)
+  first.time.bacteria.increased = min(bactera.increased$time)
+  return(first.time.bacteria.increased)
+}
+linspace = function(a,b,n) {
+  seq(a, b, by = (b-a)/(n-1))
+}
+Make.break.labels = function(breaks) {
+  labels = paste0(breaks, c(" (low)", " (default)", " (high)"))
+}
+
+Make.Sensitivity.Data.To.Adsorption = function(PHI_NON_DEPO_RANGE, PHI_DEPO_RANGE, model.params, minCFU){
+  simulated.data.list = list()
+  phage.cocktail.success.data = expand.grid(phi.n = PHI_NON_DEPO_RANGE, 
+                                            phi.d = PHI_DEPO_RANGE) %>%
+    mutate(max.bacteria = NA, 
+           min.time = NA)
+  
+  i=0
+  for (PHI_N in PHI_NON_DEPO_RANGE) {
+    for (PHI in PHI_DEPO_RANGE) {
+      i = i+1
+      simulated_data = Simulate_Phage_Coctail(
+        model = model.params$model, 
+        Vh=model.params$Vh, 
+        Kh=model.params$Kh,
+        a=model.params$a, 
+        beta_non_depo=model.params$beta_non_depo, 
+        beta_depo=model.params$beta_depo, 
+        phi_non_depo=PHI_N, 
+        phi_depo=PHI, 
+        decay=model.params$decay, 
+        V_depo=model.params$V_depo, 
+        K_depo=model.params$K_depo, 
+        depo_decay_rate=model.params$depo_decay_rate,
+        epsilonB2toB1=model.params$epsilonB2toB1, 
+        epsilonB1toB2=model.params$epsilonB1toB2,
+        epsilonB2toB3=model.params$epsilonB2toB3, 
+        epsilonB3toB2=model.params$epsilonB3toB2,
+        epsilonB1toB3=model.params$epsilonB1toB3, 
+        epsilonB3toB1=model.params$epsilonB3toB1,  
+        B0=model.params$B0, 
+        e0=model.params$e0, 
+        MOI =model.params$MOI, 
+        G0=model.params$G0, 
+        Tmax = model.params$Tmax,
+        Treatments.included = c(0,1,0,0,0,0)) %>%
+        select(time, all_bacteria_CFU_per_mL, Treatment) %>%
+        mutate(scenario = "varying_phi",
+               phi_depo = PHI,
+               phi_non_depo = PHI_N) %>% 
+        filter(Treatment == "phage cocktail (KP15/KP27 + KP34)")
+      simulated.data.list[[i]] = simulated_data
+      
+      
+      index = which(phage.cocktail.success.data$phi.n == PHI_N & phage.cocktail.success.data$phi.d == PHI)
+      max.bact = simulated_data %>% Max.Bacreria.In.Time.Window()
+      phage.cocktail.success.data$max.bacteria[index] = max.bact
+      
+      min.t = simulated_data %>% First.Time.When.Bacteria.Increase()
+      phage.cocktail.success.data$min.time[index] = min.t
+    }
+  }
+  
+  #simulated.data.all = do.call(rbind, simulated.data.list)
+  data = phage.cocktail.success.data %>%
+    mutate(min.time = if_else(min.time == Inf, 24, min.time),
+           max.bacteria = if_else(max.bacteria >= minCFU,max.bacteria, minCFU),
+           phi.n = factor(phi.n, levels = PHI_NON_DEPO_RANGE),
+           phi.d = factor(phi.d, levels = PHI_DEPO_RANGE)
+    ) 
+  return(data)
+}
+
+Make.Sensitivity.Plot.To.Adsorption.Max.Bacteria = function(data, BREAKS_NON_DEPO,BREAKS_DEPO,minCFU) {
+  ggplot(data) +
+    geom_tile(aes(x = phi.n, y = phi.d, fill = max.bacteria)) +
+    scale_fill_gradient2(low = "darkblue", mid = "white", high = "darkred", 
+                         midpoint = log10(minCFU),
+                         name  = "Max bacterial load\nwithin 24 hours",
+                         trans = "log10") + 
+    scale_x_discrete(breaks = factor(BREAKS_NON_DEPO),
+                     labels = Make.break.labels(BREAKS_NON_DEPO))+
+    scale_y_discrete(breaks = factor(BREAKS_DEPO),
+                     labels = Make.break.labels(BREAKS_DEPO))+
+    xlab(latex2exp::TeX("Adsorption rate  $\\phi_N \\,\\, \\lbrack L/(gram \\, bacteria * h) \\rbrack $")) +
+    ylab(latex2exp::TeX("Adsorption rate $\\phi_P  \\,\\, \\lbrack L/(gram \\, bacteria * h) \\rbrack $"))
+}
+
+Make.Sensitivity.Plot.To.Adsorption.Min.Time = function(data, BREAKS_NON_DEPO,BREAKS_DEPO) {
+  ggplot(data ) +
+    geom_tile(aes(x = phi.n, y = phi.d, fill = min.time)) +
+    scale_fill_gradient2(low = "midnightblue", mid = "white", high = "darkred", 
+                         midpoint = 24,
+                         name  = "Time to 10 fold \nbacterial growth") + 
+    scale_x_discrete(breaks = factor(BREAKS_NON_DEPO),
+                     labels = Make.break.labels(BREAKS_NON_DEPO))+
+    scale_y_discrete(breaks = factor(BREAKS_DEPO),
+                     labels = Make.break.labels(BREAKS_DEPO))+
+    xlab(latex2exp::TeX("Adsorption rate  $\\phi_N \\,\\, \\lbrack L/(gram \\, bacteria * h) \\rbrack $")) +
+    ylab(latex2exp::TeX("Adsorption rate $\\phi_P  \\,\\, \\lbrack L/(gram \\, bacteria * h) \\rbrack $"))
+}
+
+
+Make.Sensitivity.Data.To.Decay = function(DECAY_RATE_RANGE, EPSILON_NR_RANGE,model.params,minCFU) {
+  simulated.data.list = list()
+  phage.cocktail.success.data2 = expand.grid(decay.rate = DECAY_RATE_RANGE, 
+                                             epsilon.to.robust = EPSILON_NR_RANGE) %>%
+    mutate(max.bacteria = NA, 
+           min.time = NA)
+  
+  i=0
+  for (decay.rate in DECAY_RATE_RANGE) {
+    for (epsilon.to.robust in EPSILON_NR_RANGE) {
+      i = i+1
+      simulated_data = Simulate_Phage_Coctail(
+        model = model.params$model, 
+        Vh=model.params$Vh, 
+        Kh=model.params$Kh,
+        a=model.params$a, 
+        beta_non_depo=model.params$beta_non_depo, 
+        beta_depo=model.params$beta_depo, 
+        phi_non_depo=model.params$phi_non_depo, 
+        phi_depo=model.params$phi_depo, 
+        decay=decay.rate, 
+        V_depo=model.params$V_depo, 
+        K_depo=model.params$K_depo, 
+        depo_decay_rate=model.params$depo_decay_rate,
+        epsilonB2toB1=model.params$epsilonB2toB1, 
+        epsilonB1toB2=model.params$epsilonB1toB2,
+        epsilonB2toB3=epsilon.to.robust, 
+        epsilonB3toB2=epsilon.to.robust,
+        epsilonB1toB3=model.params$epsilonB1toB3, 
+        epsilonB3toB1=model.params$epsilonB3toB1,  
+        B0=model.params$B0, 
+        e0=model.params$e0, 
+        MOI =model.params$MOI, 
+        G0=model.params$G0, 
+        Tmax = model.params$Tmax,
+        Treatments.included = c(0,1,0,0,0,0)) %>%
+        select(time, all_bacteria_CFU_per_mL, Treatment) %>%
+        mutate(scenario = "varying_phi",
+               epsilon.to.robust = epsilon.to.robust,
+               decay.rate = decay.rate) %>% 
+        filter(Treatment == "phage cocktail (KP15/KP27 + KP34)")
+      simulated.data.list[[i]] = simulated_data
+      
+      
+      index = which(phage.cocktail.success.data2$epsilon.to.robust == epsilon.to.robust & phage.cocktail.success.data2$decay.rate == decay.rate)
+      max.bact = simulated_data %>% Max.Bacreria.In.Time.Window()
+      phage.cocktail.success.data2$max.bacteria[index] = max.bact
+      
+      min.t = simulated_data %>% First.Time.When.Bacteria.Increase()
+      phage.cocktail.success.data2$min.time[index] = min.t
+    }
+  }
+  
+  #simulated.data.all = do.call(rbind, simulated.data.list)
+  data = phage.cocktail.success.data2 %>%
+    mutate(min.time = if_else(min.time == Inf, 24, min.time),
+           max.bacteria = if_else(max.bacteria >= minCFU,max.bacteria, minCFU),
+           decay.rate = factor(decay.rate, levels = DECAY_RATE_RANGE),
+           epsilon.to.robust = factor(epsilon.to.robust, levels = EPSILON_NR_RANGE)
+    ) 
+  return(data)
+}
+
+Make.Sensitivity.Data.To.Epsilon = function(EPSILON_PN_RANGE, EPSILON_NR_RANGE,model.params,minCFU) {
+  simulated.data.list = list()
+  phage.cocktail.success.data = expand.grid(epsilon.to.mutant = EPSILON_PN_RANGE, 
+                                             epsilon.to.robust = EPSILON_NR_RANGE) %>%
+    mutate(max.bacteria = NA, 
+           min.time = NA)
+
+  i=0
+  for (epsilon.to.mutant in EPSILON_PN_RANGE) {
+    for (epsilon.to.robust in EPSILON_NR_RANGE) {
+      i = i+1
+      simulated_data = Simulate_Phage_Coctail(
+        model = model.params$model, 
+        Vh=model.params$Vh, 
+        Kh=model.params$Kh,
+        a=model.params$a, 
+        beta_non_depo=model.params$beta_non_depo, 
+        beta_depo=model.params$beta_depo, 
+        phi_non_depo=model.params$phi_non_depo, 
+        phi_depo=model.params$phi_depo, 
+        decay=model.params$decay, 
+        V_depo=model.params$V_depo, 
+        K_depo=model.params$K_depo, 
+        depo_decay_rate=model.params$depo_decay_rate,
+        epsilonB2toB1=epsilon.to.mutant, 
+        epsilonB1toB2=epsilon.to.mutant,
+        epsilonB2toB3=epsilon.to.robust, 
+        epsilonB3toB2=epsilon.to.robust,
+        epsilonB1toB3=model.params$epsilonB1toB3, 
+        epsilonB3toB1=model.params$epsilonB3toB1,  
+        B0=model.params$B0, 
+        e0=model.params$e0, 
+        MOI =model.params$MOI, 
+        G0=model.params$G0, 
+        Tmax = model.params$Tmax,
+        Treatments.included = c(0,1,0,0,0,0)) %>%
+        select(time, all_bacteria_CFU_per_mL, Treatment) %>%
+        mutate(scenario = "varying_phi",
+               epsilon.to.robust = epsilon.to.robust,
+               epsilon.to.mutant = epsilon.to.mutant) %>% 
+        filter(Treatment == "phage cocktail (KP15/KP27 + KP34)")
+      simulated.data.list[[i]] = simulated_data
+      
+      
+      index = which(phage.cocktail.success.data$epsilon.to.robust == epsilon.to.robust & phage.cocktail.success.data$epsilon.to.mutant == epsilon.to.mutant)
+      max.bact = simulated_data %>% Max.Bacreria.In.Time.Window()
+      phage.cocktail.success.data$max.bacteria[index] = max.bact
+      
+      min.t = simulated_data %>% First.Time.When.Bacteria.Increase()
+      phage.cocktail.success.data$min.time[index] = min.t
+    }
+  }
+  
+  #simulated.data.all = do.call(rbind, simulated.data.list)
+  data = phage.cocktail.success.data %>%
+    mutate(min.time = if_else(min.time == Inf, 24, min.time),
+           max.bacteria = if_else(max.bacteria >= minCFU,max.bacteria, minCFU),
+           epsilon.to.mutant = factor(epsilon.to.mutant, levels = EPSILON_PN_RANGE),
+           epsilon.to.robust = factor(epsilon.to.robust, levels = EPSILON_NR_RANGE)
+    ) 
+  return(data)
+}
+
+Make.Sensitivity.Plot = function(data,
+                                 BREAKS_X,
+                                   BREAKS_Y,
+                                   legend.name,
+                                   xlab.name,
+                                   ylab.name,
+                                   fill.variable,
+                                   x.variable,
+                                   y.variable,
+                                   midpoint,
+                                   trans = 'identity') {
+  data$x = data %>% pull(x.variable)
+  data$y = data %>% pull(y.variable)
+  data$fill = data %>% pull(fill.variable)
+  
+  ggplot(data) +
+    geom_tile(aes(x = x, y = y, fill = fill)) +
+    scale_fill_gradient2(low = "darkblue", mid = "white", high = "darkred", 
+                         midpoint = midpoint,
+                         name  = legend.name,
+                         trans = trans) + 
+    scale_x_discrete(breaks = factor(BREAKS_X), 
+                     labels = Make.break.labels(BREAKS_X))+
+    scale_y_discrete(breaks = factor(BREAKS_Y),
+                     labels = Make.break.labels(BREAKS_Y)) +
+    xlab(xlab.name) +
+    ylab(ylab.name)
+}
+
+
+
+
+Make.Sensitivity.Plot.To.Decay.Min.Time = function(data, BREAKS_DECAY,BREAKS_EPSILON) {
+  Make.Sensitivity.Plot(data,
+                        BREAKS_X = BREAKS_DECAY,
+                        BREAKS_Y = BREAKS_EPSILON,
+                        legend.name = "Time to 10 fold \nbacterial growth",
+                        xlab.name = latex2exp::TeX("Decay rate $\\gamma \\, \\, \\lbrack 1/h \\rbrack $"),
+                        ylab.name = latex2exp::TeX("rate of change $\\epsilon_N^R \\, \\, \\lbrack 1/h \\rbrack $"),
+                        fill.variable = "min.time",
+                        x.variable = "decay.rate",
+                        y.variable = "epsilon.to.robust",
+                        midpoint = 24)
+}
+
+
+
+Make.Sensitivity.Plot.To.Decay.Max.Bacteria = function(data, BREAKS_DECAY,BREAKS_EPSILON, minCFU) {
+  Make.Sensitivity.Plot(data,
+                        BREAKS_X = BREAKS_DECAY,
+                          BREAKS_Y = BREAKS_EPSILON,
+                          legend.name = "Max bacterial load\nwithin 24 hours",
+                          xlab.name = latex2exp::TeX("Decay rate $\\gamma \\, \\, \\lbrack 1/h \\rbrack $"),
+                          ylab.name = latex2exp::TeX("rate of change $\\epsilon_N^R \\, \\, \\lbrack 1/h \\rbrack $"),
+                          fill.variable = "max.bacteria",
+                          x.variable = "decay.rate",
+                          y.variable = "epsilon.to.robust",
+                          midpoint = log10(minCFU),
+                          trans = "log10" )
+}
+
+Make.Sensitivity.Plot.To.Epsilon.Max.Bacteria = function(data, BREAKS_EPSILON_PN,BREAKS_EPSILON, minCFU) {
+  Make.Sensitivity.Plot(data,
+                        BREAKS_X = BREAKS_EPSILON_PN,
+                          BREAKS_Y = BREAKS_EPSILON,
+                          legend.name = "Max bacterial load\nwithin 24 hours",
+                          xlab.name = latex2exp::TeX("rate of change $\\epsilon_P^N \\, \\, \\lbrack 1/h \\rbrack $"),
+                          ylab.name = latex2exp::TeX("rate of change $\\epsilon_N^R \\, \\, \\lbrack 1/h \\rbrack $"),
+                          fill.variable = "max.bacteria",
+                          x.variable = "epsilon.to.mutant",
+                          y.variable = "epsilon.to.robust",
+                          midpoint = log10(minCFU),
+                         trans = "log10")
+}
+
+Make.Sensitivity.Plot.To.Epsilon.Min.Time = function(data, BREAKS_EPSILON_PN,BREAKS_EPSILON) {
+  Make.Sensitivity.Plot(data,
+                        BREAKS_X = BREAKS_EPSILON_PN,
+                          BREAKS_Y = BREAKS_EPSILON,
+                          legend.name = "Time to 10 fold \nbacterial growth",
+                          xlab.name = latex2exp::TeX("rate of change $\\epsilon_P^N \\, \\, \\lbrack 1/h \\rbrack $"),
+                          ylab.name = latex2exp::TeX("rate of change $\\epsilon_N^R \\, \\, \\lbrack 1/h \\rbrack $"),
+                          fill.variable = "min.time",
+                          x.variable = "epsilon.to.mutant",
+                          y.variable = "epsilon.to.robust",
+                          midpoint = 24)
+}

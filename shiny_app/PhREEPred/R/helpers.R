@@ -229,10 +229,9 @@ two_phages_and_bacteria = function(Time, State, Pars) {
 # # our model of growth (using differential euqutions)
 two_phages_and_bacteria_delayed = function(Time, State, Pars) {
   with(as.list(c(State, Pars)), {
-    
     if (Time < latent_period_depo) {
       B1L =(1-propB2init)*B0
-      P1L =freq*P0
+      P1L =P10
     }
     else {
       B1L = lagvalue(Time - latent_period_depo,5)
@@ -240,7 +239,7 @@ two_phages_and_bacteria_delayed = function(Time, State, Pars) {
     }
     
     if (Time < latent_period_non_depo) {
-      P2L =(1-freq)*P0
+      P2L =P20
       B2L =propB2init*B0
     }
     else {
@@ -304,6 +303,21 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
 
 
   P0=B0*MOI;
+  parsdede = pars
+  parsdede$propB2init = propB2init
+  parsdede$P0 = P0
+  parsdede$B0 = B0
+  
+  inits = c(E= 0,
+            G= G0, 
+            P1 = NA,
+            P2 = NA,
+            B1= (1-propB2init)*B0,
+            B2 = propB2init*B0,
+            B3 = 0,
+            G_for_decapsulated = G0,
+            G_for_capsulated = G0,
+            killed_bacteria = 0)
   
   
   simulated_data = data.frame(time = numeric(0), 
@@ -312,7 +326,10 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
                               Treatment = character(0), 
                               Depolymerase = numeric(0), 
                               Glucose = numeric(0),
-                              stringsAsFactors = FALSE)
+                              stringsAsFactors = FALSE) %>%
+    mutate(G_for_decapsulated = NA,
+           G_for_capsulated = NA,
+           killed_bacteria = NA)
   
   # No external depolimerase: different combinations of phages
   Treatments = c(           "capsule-independent phage (KP15/KP27)",
@@ -325,28 +342,14 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
   #for (freq in c(0, propPP, 1)) {
   if (Treatments.included[i] == 1){
   freq = Treatments.data$freq[i]
-  inits = c(E= 0,
-            G= G0, 
-            P1=freq*P0,
-            P2=(1-freq)*P0,
-            B1= (1-propB2init)*B0,
-            B2 = propB2init*B0,
-            B3 = 0,
-            G_for_decapsulated = G0,
-            G_for_capsulated = G0,
-            killed_bacteria = 0)
-  
-
+  inits['P1']=freq*P0
+  inits['P2']=(1-freq)*P0
   if (model == "standard") {
     yout = ode(inits, time, two_phages_and_bacteria, pars, method = ode_method)   
   } else if (model == "delayed") {
-    parsdede = pars
-    parsdede$freq = freq
-    parsdede$propB2init = propB2init
-    parsdede$P0 = P0
-    parsdede$B0 = B0
+    parsdede$P10 = freq*P0
+    parsdede$P20=(1-freq)*P0
     yout = dede(inits, time, two_phages_and_bacteria_delayed, parsdede)
-    print("evaluating delayed model")
   }
   simulation <- as.data.frame(yout) %>% 
     select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2, Depolymerase = E, Glucose = G, G_for_decapsulated = G_for_decapsulated, G_for_capsulated = G_for_capsulated, killed_bacteria = killed_bacteria) %>%
@@ -355,13 +358,21 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
   simulated_data = rbind(simulated_data, simulation)
   }
   }
-  
-  # only pahges without depo and some additoonal depo
+
+    # only pahges without depo and some additoonal depo
   if (Treatments.included[4] == 1){
   inits['P1']=0 
   inits['P2']=P0
   inits['E'] =e0
-  simulation <- as.data.frame(ode(inits, time, two_phages_and_bacteria, pars, method = ode_method)) %>% 
+  parsdede$P10 = 0
+  parsdede$P20 = P0
+  simulation = NA
+  if (model == "standard") {
+  simulation <- as.data.frame(ode(inits, time, two_phages_and_bacteria, pars, method = ode_method))
+  } else if (model == "delayed") {
+  simulation <- as.data.frame(dede(inits, time, two_phages_and_bacteria_delayed, parsdede))
+  }
+  simulation = simulation %>% 
     select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2, Depolymerase = E, Glucose = G, G_for_decapsulated = G_for_decapsulated, G_for_capsulated = G_for_capsulated, killed_bacteria = killed_bacteria) %>%
     mutate(Treatment = paste0("capsule-independent phage (KP15/KP27) + depo"))
   simulated_data = rbind(simulated_data, simulation) 
@@ -372,7 +383,15 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
   inits['P1'] =  0 
   inits['P2'] =  0
   inits['E'] =e0
-  simulation <- as.data.frame(ode(inits, time, two_phages_and_bacteria, pars, method = ode_method)) %>% 
+  parsdede$P10 = 0
+  parsdede$P20 = 0
+  
+  if (model == "standard") {
+    simulation <- as.data.frame(ode(inits, time, two_phages_and_bacteria, pars, method = ode_method))
+  } else if (model == "delayed") {
+    simulation <- as.data.frame(dede(inits, time, two_phages_and_bacteria_delayed, parsdede))
+  }
+  simulation = simulation %>%
     select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2, Depolymerase = E, Glucose = G, G_for_decapsulated = G_for_decapsulated, G_for_capsulated = G_for_capsulated, killed_bacteria = killed_bacteria) %>%
     mutate(Treatment = "External depo")
   simulated_data = rbind(simulated_data, simulation) 
@@ -383,7 +402,14 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
   inits['P1'] =  0 
   inits['P2'] =  0
   inits['E'] = 0
-  simulation <- as.data.frame(ode(inits, time, two_phages_and_bacteria, pars, method = ode_method)) %>% 
+  parsdede$P10 = 0
+  parsdede$P20 = 0
+  if (model == "standard") {
+    simulation <- as.data.frame(ode(inits, time, two_phages_and_bacteria, pars, method = ode_method))
+  } else if (model == "delayed") {
+    simulation <- as.data.frame(dede(inits, time, two_phages_and_bacteria_delayed, parsdede))
+  }
+  simulation = simulation %>%
     select(time, bacteria_capsule = B1, bacteria_no_capsule = B2, bacteria_resistant = B3, phage_depo = P1, phage_no_depo = P2, Depolymerase = E, Glucose = G, G_for_decapsulated = G_for_decapsulated, G_for_capsulated = G_for_capsulated, killed_bacteria = killed_bacteria) %>%
     mutate(Treatment = "no phage")
   simulated_data = rbind(simulated_data, simulation) 
@@ -393,7 +419,10 @@ Simulate_Phage_Coctail = function(Vh, Kh,a, beta_non_depo, beta_depo, phi_non_de
     mutate(bacteria_capsule = bacteria_capsule*mg_count/1000,
            bacteria_no_capsule = bacteria_no_capsule*mg_count/1000,
            bacteria_resistant = bacteria_resistant*mg_count/1000,
-           killed_bacteria = killed_bacteria*mg_count/1000) %>%
+           killed_bacteria = killed_bacteria*mg_count/1000,
+           phage_depo = phage_depo*mg_count/1000,
+           phage_no_depo = phage_no_depo*mg_count/1000
+           ) %>%
     mutate(all_bacteria_CFU_per_mL = bacteria_capsule + bacteria_no_capsule + bacteria_resistant)
     
   
@@ -446,47 +475,52 @@ GetVisualisationConstants2 = function(text_size=12,
 
 
 
-PlotSimulatedPhageAndBacteria = function( simulated_data,
-                                          title_plot = "", 
-                                          colors = NULL,
-                                          ymin=-1*10^8,
-                                          ymax = 2.5*10^9,
-                                          tmax = 24,
-                                          minCFU = 6.3*10^6,
-                                          text_size = 12,
-                                          linetypes = NULL,
-                                          linesizes = NULL) {
+#PlotSimulatedPhageAndBacteria = function( simulated_data,
+#                                          title_plot = "", 
+#                                          colors = NULL,
+#                                          ymin=-1*10^8,
+#                                          ymax = 2.5*10^9,
+#                                          tmax = 24,
+#                                          minCFU = 6.3*10^6,
+#                                          text_size = 12,
+#                                          linetypes = NULL,
+#                                          linesizes = NULL,
+#                                          error.bars = FALSE) {
   
-  VisualisationConstants = GetVisualisationConstants(text_size)
-  my_theme = VisualisationConstants$my_theme
-  if (is.null(colors)) {colors = VisualisationConstants$colors}
-  if (is.null(linetypes)) {linetypes = VisualisationConstants$linetypes}
-  if (is.null(linesizes)) {linesizes = VisualisationConstants$linesizes}
-  descriptions_to_show = names(colors)
+#  VisualisationConstants = GetVisualisationConstants(text_size)
+#  my_theme = VisualisationConstants$my_theme
+#  if (is.null(colors)) {colors = VisualisationConstants$colors}
+#  if (is.null(linetypes)) {linetypes = VisualisationConstants$linetypes}
+#  if (is.null(linesizes)) {linesizes = VisualisationConstants$linesizes}
+#  descriptions_to_show = names(colors)
   
-  data_polished = simulated_data %>% 
-    filter(Treatment %in% descriptions_to_show) %>%
-    mutate(all_bacteria_CFU_per_mL = ifelse(all_bacteria_CFU_per_mL > minCFU, all_bacteria_CFU_per_mL, minCFU))
+#  data_polished = simulated_data %>% 
+#    filter(Treatment %in% descriptions_to_show) %>%
+#    mutate(all_bacteria_CFU_per_mL = ifelse(all_bacteria_CFU_per_mL > minCFU, all_bacteria_CFU_per_mL, minCFU))
   
-  g1=ggplot(data_polished,
-            aes(x = time, 
-                y = all_bacteria_CFU_per_mL, 
-                col = Treatment, 
-                linetype = Treatment, 
-                size = Treatment)) +
-    geom_line() +
-    ggtitle(title_plot) +
-    xlab("time [h]") +
-    ylab("bacteria [CFU/mL]") + 
-    scale_color_manual(values=colors) +
-    scale_linetype_manual(values = linetypes) +
-    scale_size_manual(values = linesizes) +
-    scale_y_log10(limits = c(ymin, ymax)) +
-    my_theme +
-    xlim(c(0,tmax))
+#  g1=ggplot(data_polished,
+#            aes(x = time, 
+#                y = all_bacteria_CFU_per_mL, 
+#                col = Treatment, 
+#                size = Treatment))
   
-  return(g1)
-}
+#  if (error.bars) {
+#    g1 = g1 + geom_ribbon(aes(ymin = ymin, ymax = ymax, fill = Treatment, group = Treatment), alpha = 0.4, col = NA, linetype = 0)
+#  }
+#  g1 = g1 +  geom_line(aes(linetype = Treatment)) +
+#    ggtitle(title_plot) +
+#    xlab("time [h]") +
+#    ylab("bacteria [CFU/mL]") + 
+#    scale_color_manual(values=colors) +
+#    scale_fill_manual(values=colors) +
+#    scale_linetype_manual(values = linetypes) +
+#    scale_size_manual(values = linesizes) +
+#    scale_y_log10(limits = c(ymin, ymax)) +
+#    my_theme +
+#    xlim(c(0,tmax))
+  
+#  return(g1)
+#}
 
 
 PlotSimulatedDataByBacteriaType = function( simulated_data,
@@ -605,12 +639,12 @@ GetVisualisationConstantsApp = function(text_size=12) {
                 "phage cocktail" = "solid")
   
   
-  linesizes = c("no phage" = 0.5,
+  linesizes = c("no phage" = 0.75,
                 #"External depo" = 1,
-                "depo-equipped phage" = 0.5,
-                "capsule-independent phage" = 0.5,
-                "capsule-independent phage + depo" = 0.5,
-                "phage cocktail" = 0.5)
+                "depo-equipped phage" = 0.75,
+                "capsule-independent phage" = 0.75,
+                "capsule-independent phage + depo" = 0.75,
+                "phage cocktail" = 0.75)
   
   return(list(my_theme = my_theme, 
               colors = colors, 
@@ -621,11 +655,11 @@ GetVisualisationConstantsApp = function(text_size=12) {
 
 GetVisualisationConstants = function(text_size=12) {
   my_theme = theme(
-    panel.grid.major = element_line(colour = "black", size = 0.05),
-    panel.grid.minor = element_line(colour = "black", size = 0.05),
-    panel.background = element_rect(fill = "white",
-                                    colour = "gray",
-                                    size = 0.5, linetype = "solid"),
+    panel.grid.major =  element_blank(),#element_line(colour = "black", size = 0.05),
+    panel.grid.minor =  element_blank(),#element_line(colour = "black", size = 0.05),
+    panel.background =  element_blank(),#element_rect(fill = "white",
+                                    #colour = "gray",
+                                    #size = 0.5, linetype = "solid"),
     text = element_text(size=text_size),
     panel.border = element_rect(linetype = "solid", fill = NA, color = "black")
   )
@@ -641,18 +675,18 @@ GetVisualisationConstants = function(text_size=12) {
 
     linetypes = c("no phage" = "solid",
                   #"External depo" = "solid",
-                  "depo-equipped phage (KP34)" = "dotted",
+                  "depo-equipped phage (KP34)" =  "solid", #"dotted",
                   "capsule-independent phage (KP15/KP27)" = "dashed",
-                  "capsule-independent phage (KP15/KP27) + depo" = "dashed",
+                  "capsule-independent phage (KP15/KP27) + depo" =  "solid", #"dashed",
                   "phage cocktail (KP15/KP27 + KP34)" = "solid")
   
 
-    linesizes = c("no phage" = 1.2,
+    linesizes = c("no phage" = 4,
                   #"External depo" = 1,
-                  "depo-equipped phage (KP34)" = 1.2,
-                  "capsule-independent phage (KP15/KP27)" = 1.2,
-                  "capsule-independent phage (KP15/KP27) + depo" = 1.2,
-                  "phage cocktail (KP15/KP27 + KP34)" = 1.2)
+                  "depo-equipped phage (KP34)" = 4,
+                  "capsule-independent phage (KP15/KP27)" = 4,
+                  "capsule-independent phage (KP15/KP27) + depo" = 4,
+                  "phage cocktail (KP15/KP27 + KP34)" = 4)
   
   return(list(my_theme = my_theme, 
               colors = colors, 
@@ -672,7 +706,8 @@ PlotSimulatedPhageAndBacteria = function( simulated_data,
                                           minCFU = 6.3*10^6,
                                           text_size = 12,
                                           linetypes = NULL,
-                                          linesizes = NULL) {
+                                          linesizes = NULL,
+                                          error.bars = FALSE) {
   
   VisualisationConstants = GetVisualisationConstants(text_size)
   my_theme = VisualisationConstants$my_theme
@@ -690,12 +725,18 @@ PlotSimulatedPhageAndBacteria = function( simulated_data,
                 y = all_bacteria_CFU_per_mL, 
                 col = Treatment, 
                 linetype = Treatment, 
-                size = Treatment)) +
+                size = Treatment)) 
+   if (error.bars) {
+      g1 = g1 + geom_ribbon(aes(ymin = ymin, ymax = ymax, fill = Treatment, group = Treatment), alpha = 0.2, col = NA, linetype = 0)
+      #  g1 = g1 + geom_errorbar(aes(ymin = ymin, ymax = ymax, fill = Treatment),  linetype = "solid", size = 1, alpha = 0.4) 
+    }
+  g1 = g1 +
     geom_line(alpha = 0.5) +
     ggtitle(title_plot) +
     xlab("time [h]") +
     ylab("bacteria [CFU/mL]") + 
     scale_color_manual(values=colors) +
+    scale_fill_manual(values=colors) +
     scale_linetype_manual(values = linetypes) +
     scale_size_manual(values = linesizes) +
     scale_y_log10(limits = c(ymin, ymax)) +
@@ -720,7 +761,8 @@ PlotSimulatedPhageAndBacteriaMultipleScenarios = function( simulated_data,
                                           linesizes = NULL,
                                           ncol = 1,
                                           legend.position="right",
-                                          strip.background.color = "gray") {
+                                          strip.background.color = "gray",
+                                          error.bars = FALSE) {
    n = n_distinct(simulated_data$scenario)
    nrow = ceiling(n/ncol)
    g1 = PlotSimulatedPhageAndBacteria(simulated_data = simulated_data,
@@ -732,7 +774,8 @@ PlotSimulatedPhageAndBacteriaMultipleScenarios = function( simulated_data,
                                       minCFU = minCFU,
                                       text_size = text_size,
                                       linetypes = linetypes,
-                                      linesizes = linesizes)
+                                      linesizes = linesizes,
+                                      error.bars = error.bars)
    g2 = g1 + 
      facet_wrap('scenario', nrow = nrow, ncol = ncol) +
      theme(legend.position=legend.position,
@@ -742,12 +785,18 @@ PlotSimulatedPhageAndBacteriaMultipleScenarios = function( simulated_data,
 
 # for sensitivity parameter plots
 Max.Bacreria.In.Time.Window = function(data, max.time = 24) {
+  if (nrow(data) == 0) {
+    error('data is empty')
+  }
   data.till.max.time = data %>% filter(time <= max.time)
   max.biomass.till.max.time = max(data.till.max.time$all_bacteria_CFU_per_mL)
   return(max.biomass.till.max.time)
 }
 
 First.Time.When.Bacteria.Increase = function(data, increase.by = 10) {
+  if (nrow(data) == 0) {
+    error('data is empty')
+  }
   initial.bacteria =  data %>% filter(time == 0) %>% pull(all_bacteria_CFU_per_mL)
   bactera.increased = data %>% filter(all_bacteria_CFU_per_mL >= increase.by*initial.bacteria)
   first.time.bacteria.increased = min(bactera.increased$time)
@@ -1066,3 +1115,136 @@ Make.Sensitivity.Plot.To.Epsilon.Min.Time = function(data, BREAKS_EPSILON_PN,BRE
                           y.variable = "epsilon.to.robust",
                           midpoint = 24)
 }
+
+
+
+
+Make.Sensitivity.Data.To.Depo = function(DEPO_DECAY_RANGE, DEPO_STRENGTH_RANGE,model.params,minCFU) {
+  simulated.data.list = list()
+  phage.cocktail.success.data = expand.grid(depo_decay = DEPO_DECAY_RANGE, 
+                                            depo_strength = DEPO_STRENGTH_RANGE) %>%
+    mutate(max.bacteria = NA, 
+           min.time = NA)
+  
+  i=0
+  for (depo_decay in DEPO_DECAY_RANGE) {
+    for (depo_strength in DEPO_STRENGTH_RANGE) {
+      i = i+1
+      simulated_data = Simulate_Phage_Coctail(
+        model = model.params$model, 
+        Vh=model.params$Vh, 
+        Kh=model.params$Kh,
+        a=model.params$a, 
+        beta_non_depo=model.params$beta_non_depo, 
+        beta_depo=model.params$beta_depo, 
+        phi_non_depo=model.params$phi_non_depo, 
+        phi_depo=model.params$phi_depo, 
+        decay=model.params$decay, 
+        V_depo=depo_strength, 
+        #K_depo=depo_strength/50,
+        K_depo = model.params$K_depo, 
+        depo_decay_rate=depo_decay,
+        epsilonB2toB1=model.params$epsilonB2toB1, 
+        epsilonB1toB2=model.params$epsilonB1toB2,
+        epsilonB2toB3=model.params$epsilonB2toB3, 
+        epsilonB3toB2=model.params$epsilonB3toB2,
+        epsilonB1toB3=model.params$epsilonB1toB3, 
+        epsilonB3toB1=model.params$epsilonB3toB1,  
+        B0=model.params$B0, 
+        e0=model.params$e0, 
+        MOI =model.params$MOI, 
+        G0=model.params$G0, 
+        Tmax = model.params$Tmax,
+        Treatments.included = c(0,0,0,1,0,0)) 
+
+      simulated_data = simulated_data %>%
+        select(time, all_bacteria_CFU_per_mL, Treatment) %>%
+        mutate(scenario = "varying_depo",
+               depo_strength = depo_strength,
+               depo_decay = depo_decay) %>% 
+        filter(Treatment == "capsule-independent phage (KP15/KP27) + depo")
+      simulated.data.list[[i]] = simulated_data
+
+      index = which(phage.cocktail.success.data$depo_strength == depo_strength & phage.cocktail.success.data$depo_decay == depo_decay)
+      max.bact = simulated_data %>% Max.Bacreria.In.Time.Window()
+      phage.cocktail.success.data$max.bacteria[index] = max.bact
+      
+      min.t = simulated_data %>% First.Time.When.Bacteria.Increase()
+      phage.cocktail.success.data$min.time[index] = min.t
+    }
+  }
+  
+  #simulated.data.all = do.call(rbind, simulated.data.list)
+  data = phage.cocktail.success.data %>%
+    mutate(min.time = if_else(min.time == Inf, 24, min.time),
+           max.bacteria = if_else(max.bacteria >= minCFU,max.bacteria, minCFU),
+           depo_strength = factor(depo_strength, levels = DEPO_STRENGTH_RANGE),
+           depo_decay = factor(depo_decay, levels = DEPO_DECAY_RANGE)
+    ) 
+  return(data)
+}
+
+
+Make.Sensitivity.Plot.To.Depo.Max.Bacteria = function(data, BREAKS_DEPO_DECAY,BREAKS_DEPO_STRENGTH, minCFU) {
+  Make.Sensitivity.Plot(data,
+                        BREAKS_X = BREAKS_DEPO_DECAY,
+                        BREAKS_Y = BREAKS_DEPO_STRENGTH,
+                        legend.name = "Max bacterial load\nwithin 24 hours",
+                        xlab.name = latex2exp::TeX("Depolymerase decay rate $\\gamma^E \\, \\, \\lbrack 1/h \\rbrack $"),
+                        ylab.name = latex2exp::TeX("Depolymerase strength $\\V^D\\, \\, \\lbrack g/L*h \\rbrack $"),
+                        fill.variable = "max.bacteria",
+                        x.variable = "depo_decay",
+                        y.variable = "depo_strength",
+                        midpoint = log10(minCFU),
+                        trans = "log10")
+}
+
+Make.Sensitivity.Plot.To.Depo.Min.Time = function(data, BREAKS_DEPO_DECAY,BREAKS_DEPO_STRENGTH) {
+  Make.Sensitivity.Plot(data,
+                        BREAKS_X = BREAKS_DEPO_DECAY,
+                        BREAKS_Y = BREAKS_DEPO_STRENGTH,
+                        legend.name = "Time to 10 fold \nbacterial growth",
+                        xlab.name = latex2exp::TeX("Depolymerase decay rate $\\gamma^E \\, \\, \\lbrack 1/h \\rbrack $"),
+                        ylab.name = latex2exp::TeX("Depolymerase strength $\\V^D\\, \\, \\lbrack g/L*h \\rbrack $"),
+                        fill.variable = "min.time",
+                        x.variable = "depo_decay",
+                        y.variable = "depo_strength",
+                        midpoint = 24)
+}
+
+
+
+Make.Sensitivity.Data = function(RANGE_X, RANGE_Y,model.params,minCFU, parx_name, pary_name) {
+  simulated.data.list = list()
+  phage.cocktail.success.data = expand.grid(parx = RANGE_X, 
+                                            pary = RANGE_Y) %>%
+    mutate(max.bacteria = NA, 
+           min.time = NA)
+  
+  i=0
+  for (par_x in RANGE_X) {
+    for (par_y in RANGE_Y) {
+      i = i+1
+      model.params[parx_name] = par_x
+      model.params[pary_name] = par_y
+      
+      simulated_data = Simulate_Phage_Coctail(
+        model.parameters = model.params,
+        Treatments.included = c(0,0,0,1,0,0)) 
+      
+      max.bact = simulated_data %>% Max.Bacreria.In.Time.Window()
+      phage.cocktail.success.data$max.bacteria[index] = max.bact
+      
+      min.t = simulated_data %>% First.Time.When.Bacteria.Increase()
+      phage.cocktail.success.data$min.time[index] = min.t
+    }
+  }
+  #simulated.data.all = do.call(rbind, simulated.data.list)
+  data = phage.cocktail.success.data %>%
+    mutate(min.time = if_else(min.time == Inf, 24, min.time),
+           max.bacteria = if_else(max.bacteria >= minCFU,max.bacteria, minCFU),
+           depo_strength = factor(depo_strength, levels = RANGE_X),
+           depo_decay = factor(depo_decay, levels = RANGE_Y))
+  return(data)
+}
+  

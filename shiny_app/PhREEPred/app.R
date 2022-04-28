@@ -14,6 +14,8 @@ library(deSolve)
 library(latex2exp)
 
 source("R/helpers.R")
+
+
 source("R/fit_bacterial_growth_parameters.R")
 mg_count = (10^12) 
 min.cfu = 6.3*10^6
@@ -201,7 +203,7 @@ ui <- shinyUI(fluidPage(
                                plotOutput("bacteriatypeplot"),
                                #plotOutput("bacteriatypeplot2")
                                ),
-                      tabPanel("Parameter Sensitivity",
+                      tabPanel("Phage cocktail: sensitivity to parameters",
                                h4("Efficiency of the phage cocktail treatments depending on optional parameters which may be difficult to measure.
                                   The efficiency is measured by: 
                                   (left) max bacterial load within 24 hours,
@@ -228,6 +230,21 @@ ui <- shinyUI(fluidPage(
                                         plotOutput("sensitivity.to.epsilon.min.time.plot"),
                                  )),
      
+                      ),
+                      tabPanel("Phage + depo: sensitivity to parameters",
+                               h4("Efficiency of the cpasule independent phage and depolymerase combination treatments depending on optional parameters which may be difficult to measure.
+                                  The efficiency is measured by: 
+                                  (left) max bacterial load within 24 hours,
+                                  (right) min. time at which bacterial load increases 10 times from the initial concentration."),
+                               fluidRow(column(12, br(),h4("1) depending on strength and decay rate of the externally added depolymerase."))),
+                               fluidRow(
+                                 column(6,
+                                        plotOutput("sensitivity.to.depo.max.bacteria.plot")
+                                        ),
+                                 column(6,
+                                        plotOutput("sensitivity.to.depo.min.time.plot")
+                                        ),
+                               ),
                       ),
                       tabPanel("Get Bacterial Growth Parameters", 
                                h4("The acterial growth parameters will be calculated upon input of the growth curve data (bacteria in absence of phages).
@@ -322,7 +339,9 @@ server <- shinyServer(function(input, output) {
       Tmax = input$Tmax,
       latent_period_depo = input$latent_period_depo/60,
       latent_period_non_depo = input$latent_period_non_depo/60,
-      model = "delayed")
+      model = default_params$model,
+      bf = default_params$bf,
+      propB2init = default_params$propB2init)
     })
     
     output$errortext <- renderText({
@@ -371,33 +390,8 @@ server <- shinyServer(function(input, output) {
       return(fig)
     })
     
-    
-    simulated_data =  reactive({Simulate_Phage_Coctail(
-                                             Vh=input$Vh, 
-                                             Kh=input$Kh,
-                                             a=input$a, 
-                                             beta_non_depo=input$beta_non_depo, 
-                                             beta_depo=input$beta_depo, 
-                                             phi_non_depo=input$phi_non_depo, 
-                                             phi_depo=input$phi_depo, 
-                                             decay=input$decay, 
-                                             V_depo=default_params$V_depo, 
-                                             K_depo=default_params$K_depo, 
-                                             depo_decay_rate=default_params$depo_decay_rate,
-                                             epsilonB2toB1=default_params$epsilonB2toB1,#input$epsilonB2toB1, 
-                                             epsilonB1toB2=default_params$epsilonB1toB2,#input$epsilonB1toB2,
-                                             epsilonB2toB3=default_params$epsilonB2toB3,#input$epsilonB2toB3, 
-                                             epsilonB3toB2=default_params$epsilonB3toB2,#input$epsilonB3toB2,
-                                             epsilonB1toB3=default_params$epsilonB1toB3,#input$epsilonB1toB3, 
-                                             epsilonB3toB1=default_params$epsilonB3toB1,#input$epsilonB3toB1,  
-                                             B0=as.numeric(input$B0)/(mg_count/1000), # so that it is in g/L
-                                             e0=default_params$e0, 
-                                             MOI =input$MOI, 
-                                             G0=input$G0, 
-                                             Tmax = input$Tmax,
-                                             latent_period_depo = input$latent_period_depo/60,
-                                             latent_period_non_depo = input$latent_period_non_depo/60,
-                                             model = "delayed") %>% 
+
+    simulated_data =  reactive({Simulate_Phage_Coctail(model.parameters = model.params()) %>% 
         mutate(Treatment = plyr::revalue(Treatment,
                                          c( "depo-equipped phage (KP34)" =  "depo-equipped phage", 
                                             "capsule-independent phage (KP15/KP27)"  = "capsule-independent phage" ,
@@ -413,14 +407,16 @@ server <- shinyServer(function(input, output) {
     DECAY_RATE_RANGE = reactive({model.params()$decay*c(10^linspace(-1,1, n = num.in.range))})
     EPSILON_NR_RANGE = reactive({model.params()$epsilonB2toB3*c(10^linspace(-10,10, n = num.in.range))})
     EPSILON_PN_RANGE = reactive({model.params()$epsilonB1toB2*c(10^linspace(-3,3, n = num.in.range))})
-    
+    DEPO_DECAY_RANGE = reactive({model.params()$depo_decay_rate*c(10^linspace(-3,3, n = num.in.range))})
+    DEPO_STRENGTH_RANGE = reactive({model.params()$V_depo*c(10^linspace(-3,3, n = num.in.range))})
     
     BREAKS_NON_DEPO =  reactive({c(PHI_NON_DEPO_RANGE()[1], model.params()$phi_non_depo, PHI_NON_DEPO_RANGE()[length(PHI_NON_DEPO_RANGE())])})
     BREAKS_DEPO =  reactive({c(PHI_DEPO_RANGE()[1], model.params()$phi_depo, PHI_DEPO_RANGE()[length(PHI_DEPO_RANGE())])})
     BREAKS_DECAY =  reactive({c(DECAY_RATE_RANGE()[1], model.params()$decay, DECAY_RATE_RANGE()[length(DECAY_RATE_RANGE())])})
     BREAKS_EPSILON = reactive({c(EPSILON_NR_RANGE()[1], model.params()$epsilonB2toB3, EPSILON_NR_RANGE()[length(EPSILON_NR_RANGE())])})
     BREAKS_EPSILON_PN = reactive({c(EPSILON_PN_RANGE()[1], model.params()$epsilonB1toB2, EPSILON_PN_RANGE()[length(EPSILON_PN_RANGE())])})
-    
+    BREAKS_DEPO_DECAY = reactive({c(DEPO_DECAY_RANGE()[1], model.params()$depo_decay_rate, DEPO_DECAY_RANGE()[length(DEPO_DECAY_RANGE())])})
+    BREAKS_DEPO_STRENGTH = reactive({c(DEPO_STRENGTH_RANGE()[1], model.params()$V_depo, DEPO_STRENGTH_RANGE()[length(DEPO_STRENGTH_RANGE())])})
     
     sensitivity.data.to.adsorption =  reactive({
       sensitivity.Data.To.Adsorption = Make.Sensitivity.Data.To.Adsorption(PHI_NON_DEPO_RANGE=PHI_NON_DEPO_RANGE(), 
@@ -445,6 +441,14 @@ server <- shinyServer(function(input, output) {
                                                                  model.params = model.params(),
                                                                  minCFU = min.cfu)
       return(sensitivity.Data.To.epsilon)
+    })
+    
+    sensitivity.data.to.depo = reactive({
+      sensitivity.Data.To.depo = Make.Sensitivity.Data.To.Depo(DEPO_DECAY_RANGE = DEPO_DECAY_RANGE(), 
+                                                               DEPO_STRENGTH_RANGE = DEPO_STRENGTH_RANGE(), 
+                                                               model.params = model.params(),
+                                                               minCFU = min.cfu)
+      return(sensitivity.Data.To.depo)
     })
     
     output$sensitivity.to.adsorption.max.bacteria.plot <- renderPlot({
@@ -496,6 +500,26 @@ server <- shinyServer(function(input, output) {
     output$sensitivity.to.epsilon.min.time.plot <- renderPlot({
       if(isValid_input()){ 
         fig = Make.Sensitivity.Plot.To.Epsilon.Min.Time(data=sensitivity.data.to.epsilon(), BREAKS_EPSILON_PN(), BREAKS_EPSILON())
+        return(fig)
+      }else{ 
+        return(invisible(NULL))
+      }
+    })
+    
+    
+    
+    output$sensitivity.to.depo.max.bacteria.plot <- renderPlot({
+      if(isValid_input()){ 
+        fig = Make.Sensitivity.Plot.To.Depo.Max.Bacteria(data=sensitivity.data.to.depo(),BREAKS_DEPO_DECAY(), BREAKS_DEPO_STRENGTH(), minCFU=min.cfu)
+        return(fig)
+      }else{ 
+        return(invisible(NULL))
+      }
+    })
+    
+    output$sensitivity.to.depo.min.time.plot <- renderPlot({
+      if(isValid_input()){ 
+        fig = Make.Sensitivity.Plot.To.Depo.Min.Time(data=sensitivity.data.to.depo(), BREAKS_DEPO_DECAY(), BREAKS_DEPO_STRENGTH())
         return(fig)
       }else{ 
         return(invisible(NULL))

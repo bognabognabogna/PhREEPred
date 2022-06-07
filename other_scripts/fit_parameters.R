@@ -3,7 +3,7 @@ suppressWarnings(suppressPackageStartupMessages(library(DEoptim)))
 suppressWarnings(suppressPackageStartupMessages(library(dplyr)))
 suppressWarnings(suppressPackageStartupMessages(library(ggplot2)))
 
-deopticontrol = DEoptim.control(itermax = 1000, reltol = 10^(-8), trace = 100)
+deopticontrol = DEoptim.control(itermax = 100, reltol = 10^(-8), trace = 100)
 
 ###################### helper functions ##############################
 

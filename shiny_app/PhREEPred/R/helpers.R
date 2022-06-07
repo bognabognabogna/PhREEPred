@@ -682,7 +682,10 @@ PlotSimulatedPhageAndBacteria = function( simulated_data,
                                           text_size = 12,
                                           linetypes = NULL,
                                           linesizes = NULL,
-                                          error.bars = FALSE) {
+                                          error.bars = FALSE,
+                                          scale.yaxis.log = TRUE,
+                                          error.bar.type = "ribbon",
+                                          line.transparecncy = 0.5) {
   
   VisualisationConstants = GetVisualisationConstants(text_size)
   my_theme = VisualisationConstants$my_theme
@@ -702,11 +705,14 @@ PlotSimulatedPhageAndBacteria = function( simulated_data,
                 linetype = Treatment, 
                 size = Treatment)) 
    if (error.bars) {
-      g1 = g1 + geom_ribbon(aes(ymin = ymin, ymax = ymax, fill = Treatment, group = Treatment), alpha = 0.2, col = NA, linetype = 0)
-      #  g1 = g1 + geom_errorbar(aes(ymin = ymin, ymax = ymax, fill = Treatment),  linetype = "solid", size = 1, alpha = 0.4) 
+     if (error.bar.type == "ribbon") {
+      g1 = g1 + geom_ribbon(aes(ymin = ymin, ymax = ymax, fill = Treatment, group = Treatment), alpha = line.transparecncy/2, col = NA, linetype = 0)
+     } else if (error.bar.type == "bar") {
+      g1 = g1 + geom_errorbar(aes(ymin = ymin, ymax = ymax, fill = Treatment),  linetype = "solid", size = 1, alpha = 0.8*line.transparecncy) 
+     }
     }
   g1 = g1 +
-    geom_line(alpha = 0.5) +
+    geom_line(alpha = line.transparecncy) +
     ggtitle(title_plot) +
     xlab("time [h]") +
     ylab("bacteria [CFU/mL]") + 
@@ -714,10 +720,14 @@ PlotSimulatedPhageAndBacteria = function( simulated_data,
     scale_fill_manual(values=colors) +
     scale_linetype_manual(values = linetypes) +
     scale_size_manual(values = linesizes) +
-    scale_y_log10(limits = c(ymin, ymax)) +
     my_theme +
     xlim(c(0,tmax))
   
+  if (scale.yaxis.log) {
+    g1 = g1 + scale_y_log10(limits = c(ymin, ymax))
+  } else {
+    g1 = g1 + ylim(c(ymin, ymax))
+  }
   return(g1)
   }
   

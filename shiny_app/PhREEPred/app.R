@@ -397,7 +397,8 @@ server <- shinyServer(function(input, output) {
                                             "capsule-independent phage (KP15/KP27)"  = "capsule-independent phage" ,
                                             "capsule-independent phage (KP15/KP27) + depo" = "capsule-independent phage + depo",
                                             "phage cocktail (KP15/KP27 + KP34)" = "phage cocktail" ))) %>%
-            filter(Treatment != "External depo" & Treatment != "capsule-independent phage + depo")
+            filter(Treatment != "External depo")# %>%
+            #filter(Treatment != "capsule-independent phage + depo")
 
     })
     
@@ -535,9 +536,9 @@ server <- shinyServer(function(input, output) {
             
             VisualisationConstants = GetVisualisationConstantsApp()
             my_theme = VisualisationConstants$my_theme
-            colors = VisualisationConstants$colors %>% remove_x("capsule-independent phage + depo")
-            linetypes = VisualisationConstants$linetypes %>% remove_x("capsule-independent phage + depo")
-            linesizes = VisualisationConstants$linesizes %>% remove_x("capsule-independent phage + depo")
+            colors = VisualisationConstants$colors# %>% remove_x("capsule-independent phage + depo")
+            linetypes = VisualisationConstants$linetypes #%>% remove_x("capsule-independent phage + depo")
+            linesizes = VisualisationConstants$linesizes #%>% remove_x("capsule-independent phage + depo")
             
         
         fig =PlotSimulatedPhageAndBacteria(simulated_data(),

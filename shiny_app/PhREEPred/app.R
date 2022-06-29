@@ -204,6 +204,17 @@ ui <- shinyUI(fluidPage(
                                #plotOutput("bacteriatypeplot2")
                                ),
                       tabPanel("Phage cocktail: sensitivity to parameters",
+                               fluidRow(column(12, align="center",
+                                               br(),
+                               selectInput("sensitivity_grid_size",
+                                           label = "Grid size for the sensitivity: \n
+                                            note that calculations for higher grid sizes will be time-consuming",
+                                           choices = c(3,5,7,9,11,21),
+                                           selected  = 5),
+                                br(),
+                                actionButton("run_sensitivity", "Run sensitivity to parameters analysis"))),
+                              br(),
+                              conditionalPanel(condition = "input.run_sensitivity==1",
                                h4("Efficiency of the phage cocktail treatments depending on optional parameters which may be difficult to measure.
                                   The efficiency is measured by: 
                                   (left) max bacterial load within 24 hours,
@@ -228,15 +239,29 @@ ui <- shinyUI(fluidPage(
                                         plotOutput("sensitivity.to.epsilon.max.bacteria.plot")),
                                  column(6,
                                         plotOutput("sensitivity.to.epsilon.min.time.plot"),
-                                 )),
+                                 ))),
      
                       ),
                       tabPanel("Phage + depo: sensitivity to parameters",
-                               h4("Efficiency of the cpasule independent phage and depolymerase combination treatments depending on optional parameters which may be difficult to measure.
+                               fluidRow(column(12,  align="center",
+                                      br(),
+                                      selectInput("sensitivity_to_depo_grid_size",
+                                                  label = "Grid size for the sensitivity: \n
+                                            note that calculations for higher grid sizes will be time-consuming",
+                                                  choices = c(3,5,7,9,11,21),
+                                                  selected  = 5),
+                                      br(),
+                                      actionButton("run_sensitivity_to_depo", "Run sensitivity analysis"),
+                               br())),
+                               conditionalPanel(
+                                 condition = "input.run_sensitivity_to_depo==1",
+                                 fluidRow(column(12,  align="center",
+                                          h4("Efficiency of the cpasule independent phage and depolymerase combination treatments depending on optional parameters which may be difficult to measure.
                                   The efficiency is measured by: 
                                   (left) max bacterial load within 24 hours,
                                   (right) min. time at which bacterial load increases 10 times from the initial concentration."),
-                               fluidRow(column(12, br(),h4("1) depending on strength and decay rate of the externally added depolymerase."))),
+                                          br(),
+                                          h4("1) depending on strength and decay rate of the externally added depolymerase."))),
                                fluidRow(
                                  column(6,
                                         plotOutput("sensitivity.to.depo.max.bacteria.plot")
@@ -245,7 +270,7 @@ ui <- shinyUI(fluidPage(
                                         plotOutput("sensitivity.to.depo.min.time.plot")
                                         ),
                                ),
-                      ),
+                      )),
                       tabPanel("Get Bacterial Growth Parameters", 
                                h4("The acterial growth parameters will be calculated upon input of the growth curve data (bacteria in absence of phages).
                                   Please format your data as a .csv file where the first column is time [hours], and the second column is bacterial load [CFU/mL]"),
@@ -344,6 +369,11 @@ server <- shinyServer(function(input, output) {
       propB2init = default_params$propB2init)
     })
     
+    num.in.range = reactive({as.numeric(input$sensitivity_grid_size)})
+    num.in.range.depo = reactive({as.numeric(input$sensitivity_to_depo_grid_size)})
+    
+    
+    
     output$errortext <- renderText({
         if(isValid_input()){ invisible(NULL) 
         }else{ #
@@ -402,14 +432,14 @@ server <- shinyServer(function(input, output) {
 
     })
     
-    num.in.range = 21
-    PHI_NON_DEPO_RANGE = reactive({model.params()$phi_non_depo*c(10^linspace(-1,1, n = num.in.range))})
-    PHI_DEPO_RANGE = reactive({model.params()$phi_depo*c(10^linspace(-1,1, n =num.in.range))})
-    DECAY_RATE_RANGE = reactive({model.params()$decay*c(10^linspace(-1,1, n = num.in.range))})
-    EPSILON_NR_RANGE = reactive({model.params()$epsilonB2toB3*c(10^linspace(-10,10, n = num.in.range))})
-    EPSILON_PN_RANGE = reactive({model.params()$epsilonB1toB2*c(10^linspace(-3,3, n = num.in.range))})
-    DEPO_DECAY_RANGE = reactive({model.params()$depo_decay_rate*c(10^linspace(-3,3, n = num.in.range))})
-    DEPO_STRENGTH_RANGE = reactive({model.params()$V_depo*c(10^linspace(-3,3, n = num.in.range))})
+
+    PHI_NON_DEPO_RANGE = reactive({model.params()$phi_non_depo*c(10^linspace(-1,1, n = num.in.range()))})
+    PHI_DEPO_RANGE = reactive({model.params()$phi_depo*c(10^linspace(-1,1, n =num.in.range()))})
+    DECAY_RATE_RANGE = reactive({model.params()$decay*c(10^linspace(-1,1, n = num.in.range()))})
+    EPSILON_NR_RANGE = reactive({model.params()$epsilonB2toB3*c(10^linspace(-10,10, n = num.in.range()))})
+    EPSILON_PN_RANGE = reactive({model.params()$epsilonB1toB2*c(10^linspace(-3,3, n = num.in.range()))})
+    DEPO_DECAY_RANGE = reactive({model.params()$depo_decay_rate*c(10^linspace(-3,3, n = num.in.range.depo()))})
+    DEPO_STRENGTH_RANGE = reactive({model.params()$V_depo*c(10^linspace(-3,3, n = num.in.range.depo()))})
     
     BREAKS_NON_DEPO =  reactive({c(PHI_NON_DEPO_RANGE()[1], model.params()$phi_non_depo, PHI_NON_DEPO_RANGE()[length(PHI_NON_DEPO_RANGE())])})
     BREAKS_DEPO =  reactive({c(PHI_DEPO_RANGE()[1], model.params()$phi_depo, PHI_DEPO_RANGE()[length(PHI_DEPO_RANGE())])})

@@ -1,0 +1,12 @@
+name: PhREEPred
+title: PhREEPred
+username: phartner
+account: phartner
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 5555441
+bundleId: 12638560
+url: https://phartner.shinyapps.io/PhREEPred/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

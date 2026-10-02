@@ -302,12 +302,15 @@ ui <- shinyUI(fluidPage(
                                             24),
                                tableOutput("fitted.params"),
                                plotOutput("fitted.params.plot")
+                      ),
+                      tabPanel("Info", 
+                               h4("Note: the dahsborad has been re-uploaded on 2-10-2026 with new versions of R packages. 
+                      Contact the developpers in case of errors."),
+                               br()
                       )
           )
-
-          
         )
-    )
+        )
 ))
 
 
